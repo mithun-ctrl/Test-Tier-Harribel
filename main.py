@@ -276,40 +276,20 @@ async def caption_command(client, message):
 @espada.on_callback_query(filters.regex("^copy_"))
 async def copy_callback(client, callback_query: CallbackQuery):
     try:
-        # Extract the text to be "copied" from the callback data
+        # Extract the text to copy from the callback data
         text_to_copy = callback_query.data.split("_", 1)[1]
 
-        # Edit the message to display the text to be copied, or resend it in a format easy to copy
-        await callback_query.message.edit_text(
-            text=text_to_copy,
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("Back", callback_data="back_to_original")
-            ]])
+        # Send the copied text as a new message (this is the key change)
+        await client.send_message(
+            chat_id=callback_query.message.chat.id,
+            text=text_to_copy
         )
-        await callback_query.answer("Text is now displayed for copying!")
+
+        # Optionally, notify the user that the message has been copied for easy access
+        await callback_query.answer("Text has been sent for copying!")
 
     except Exception as e:
         print(f"Copy callback error: {str(e)}")
-        await callback_query.answer("An error occurred.")
-        
-@espada.on_callback_query(filters.regex("^back_to_original"))
-async def back_to_original(client, callback_query: CallbackQuery):
-    # This restores the original message if the user wants to go back
-    try:
-        # Re-display the original message or any other actions
-        await callback_query.message.edit_text(
-            text="Text ready for copy again!",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton(
-                    text="Copy",
-                    callback_data=f"copy_{callback_query.data.split('_', 1)[1]}"
-                )
-            ]])
-        )
-        await callback_query.answer("Returned to the original message.")
-
-    except Exception as e:
-        print(f"Back to original error: {str(e)}")
         await callback_query.answer("An error occurred.")
 
 
