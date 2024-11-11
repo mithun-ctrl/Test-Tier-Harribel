@@ -237,17 +237,11 @@ async def caption_command(client, message):
 
         # Add additional message if -f or -filename is present
         if include_filename:
-            additional_message = f"[PirecyKings2] {movie_data['movie_p']} ({movie_data['year_p']}) @pirecykings2.mkv"
-            markup = InlineKeyboardMarkup([[
-                InlineKeyboardButton(
-                    text="Copy",
-                    callback_data=f"copy_{additional_message}"
-                )
-            ]])
+            additional_message = f"`[PirecyKings2] {movie_data['movie_p']} ({movie_data['year_p']}) @pirecykings2.mkv`"
             await client.send_message(
                 chat_id=message.chat.id,
                 text=additional_message,
-                reply_markup=markup
+                parse_mode=ParseMode.MARKDOWN
             )
 
         # Delete the status message
@@ -272,48 +266,6 @@ async def caption_command(client, message):
             chat_id=message.chat.id,
             error=e
         )
-
-@espada.on_callback_query(filters.regex("^copy_"))
-async def copy_callback(client, callback_query: CallbackQuery):
-    try:
-        # Extract the text to copy from the callback data
-        text_to_copy = callback_query.data.split("_", 1)[1]
-
-        # Format the text to be displayed in a "copiable" format (monospace or blockquote)
-        formatted_text = f"```\n{text_to_copy}\n```"  # Using monospace formatting with backticks
-
-        # Edit the message to display the text in monospace format for copying
-        await callback_query.message.edit_text(
-            text=formatted_text,
-            parse_mode=ParseMode.MARKDOWN_V2,  # Required to parse the markdown for formatting
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("Back", callback_data="back_to_original"),  # Button to revert
-                InlineKeyboardButton("Copy", callback_data=f"copy_{text_to_copy}")  # Same button to show it again
-            ]])
-        )
-        await callback_query.answer("Text is now in a copiable format!")
-
-    except Exception as e:
-        print(f"Copy callback error: {str(e)}")
-        await callback_query.answer("An error occurred while processing your request.")
-        
-@espada.on_callback_query(filters.regex("^back_to_original"))
-async def back_to_original(client, callback_query: CallbackQuery):
-    # Revert the message back to its original format if needed
-    try:
-        # Re-edit the message with original text or any other format
-        original_message = callback_query.message.text.split("\n", 1)[-1]  # Assuming the original message format
-        await callback_query.message.edit_text(
-            text=original_message,
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("Copy", callback_data=f"copy_{original_message}")
-            ]])
-        )
-        await callback_query.answer("Returned to the original message.")
-
-    except Exception as e:
-        print(f"Back to original error: {str(e)}")
-        await callback_query.answer("An error occurred while reverting the message.")
 
 async def start_bot():
     try:
