@@ -223,11 +223,6 @@ async def caption_command(client, message):
             movie_data['synopsis_p']
         )
 
-        # Add additional message if -f or -filename is present
-        if include_filename:
-            additional_message = f"[PirecyKings2] {movie_data['movie_p']} ({movie_data['year_p']}) @pirecykings2.mkv"
-            caption += f"\n\n{additional_message}"
-
         # Prepare poster for sending
         poster_stream = BytesIO(poster_data)
         poster_stream.name = "poster.jpg"
@@ -239,6 +234,14 @@ async def caption_command(client, message):
             caption=caption,
             parse_mode=ParseMode.MARKDOWN
         )
+
+        # Add additional message if -f or -filename is present
+        if include_filename:
+            additional_message = f"[PirecyKings2] {movie_data['movie_p']} ({movie_data['year_p']}) @pirecykings2.mkv"
+            await client.send_message(
+                chat_id=message.chat.id,
+                text=additional_message
+            )
 
         # Delete the status message
         await status_message.delete()
