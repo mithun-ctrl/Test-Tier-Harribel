@@ -237,10 +237,17 @@ async def caption_command(client, message):
 
         # Add additional message if -f or -filename is present
         if include_filename:
-            additional_message = f"```[PirecyKings2] {movie_data['movie_p']} ({movie_data['year_p']}) @pirecykings2.mkv```"
+            additional_message = f"[PirecyKings2] {movie_data['movie_p']} ({movie_data['year_p']}) @pirecykings2.mkv"
+            markup = InlineKeyboardMarkup([[
+                InlineKeyboardButton(
+                    text=additional_message,
+                    callback_data=f"copy_{additional_message}"
+                )
+            ]])
             await client.send_message(
                 chat_id=message.chat.id,
-                text=additional_message
+                text=additional_message,
+                reply_markup=markup
             )
 
         # Delete the status message
@@ -265,6 +272,16 @@ async def caption_command(client, message):
             chat_id=message.chat.id,
             error=e
         )
+
+@espada.on_callback_query(filters.regex("^copy_"))
+async def copy_callback(client, callback_query: CallbackQuery):
+    try:
+        text_to_copy = callback_query.data.split("_", 1)[1]
+        await utils.copy_text_to_clipboard(client, callback_query.message.chat.id, text_to_copy)
+        await callback_query.answer("Copied to clipboard!")
+    except Exception as e:
+        print(f"Copy callback error: {str(e)}")
+        await callback_query.answer("An error occurred.")
 
 async def start_bot():
     try:
