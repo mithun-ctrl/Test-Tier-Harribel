@@ -240,7 +240,7 @@ async def caption_command(client, message):
             additional_message = f"[PirecyKings2] {movie_data['movie_p']} ({movie_data['year_p']}) @pirecykings2.mkv"
             markup = InlineKeyboardMarkup([[
                 InlineKeyboardButton(
-                    text=additional_message,
+                    text="Copy",
                     callback_data=f"copy_{additional_message}"
                 )
             ]])
@@ -277,7 +277,11 @@ async def caption_command(client, message):
 async def copy_callback(client, callback_query: CallbackQuery):
     try:
         text_to_copy = callback_query.data.split("_", 1)[1]
-        await utils.copy_text_to_clipboard(client, callback_query.message.chat.id, text_to_copy)
+        await client.copy_message(
+            chat_id=callback_query.message.chat.id,
+            from_chat_id=callback_query.message.chat.id,
+            message_id=callback_query.message.id
+        )
         await callback_query.answer("Copied to clipboard!")
     except Exception as e:
         print(f"Copy callback error: {str(e)}")
