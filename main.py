@@ -267,7 +267,6 @@ async def caption_command(client, message):
             error=e
         )
 
-
 async def start_bot():
     try:
         await espada.start()
