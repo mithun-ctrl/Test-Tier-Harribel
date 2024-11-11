@@ -237,7 +237,7 @@ async def caption_command(client, message):
 
         # Add additional message if -f or -filename is present
         if include_filename:
-            additional_message = f"[PirecyKings2] {movie_data['movie_p']} ({movie_data['year_p']}) @pirecykings2.mkv"
+            additional_message = f"```[PirecyKings2] {movie_data['movie_p']} ({movie_data['year_p']}) @pirecykings2.mkv```"
             await client.send_message(
                 chat_id=message.chat.id,
                 text=additional_message
