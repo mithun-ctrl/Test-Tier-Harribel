@@ -72,10 +72,10 @@ def format_caption(movie, year, audio, genre, imdbRating, synopsis):
     """Format the caption with Markdown"""
     caption = f""" {movie}（{year}）
     
-» 𝗔𝘂𝗱𝗶𝗼: {audio}
-» 𝗤𝘂𝗮𝗹𝗶𝘁𝘆: 480p | 720p | 1080p
+» 𝗔𝘂𝗱𝗶𝗼: {audio}（Esub）
+» 𝗤𝘂𝗮𝗹𝗶𝘁𝘆: 480p | 720p | 1080p |
 » 𝗚𝗲𝗻𝗿𝗲: {genre}
-» 𝗜𝗺𝗱𝗯 𝗥𝗮𝘁𝗶𝗻𝗴: {imdbRating}/10 
+» 𝗜𝗺𝗱𝗯 𝗥𝗮𝘁𝗶𝗻𝗴: {imdbRating}/10
 
 » 𝗦𝘆𝗻𝗼𝗽𝘀𝗶𝘀
 > {synopsis}
