@@ -9,6 +9,8 @@ import aiohttp
 from io import BytesIO
 from plugins.logs import Logger
 from script import START_TEXT, HELP_TEXT, SUPPORT_TEXT, ABOUT_TEXT
+from plugins.stats import Stats
+import time
 
 
 # Get environment variables
@@ -23,6 +25,7 @@ if not all([api_id, api_hash, bot_token, omdb_api_key, log_channel]):
 # Initialize the bot
 espada = Client("movie_caption_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
 logger = Logger(espada)
+stats_handler = Stats(espada)
 
 # Define keyboard layouts
 start_keyboard = InlineKeyboardMarkup([
@@ -266,6 +269,42 @@ async def caption_command(client, message):
             chat_id=message.chat.id,
             error=e
         )
+espada.on_message(filters.command(["stats"]))
+async def stats_command(client, message):
+    await stats_handler.handle_stats_command(message)
+
+@espada.on_callback_query()
+async def callback_query(client, callback_query: CallbackQuery):
+    try:
+        if callback_query.data == "refresh_stats":
+            await stats_handler.refresh_stats(callback_query)
+        elif callback_query.data == "home":
+            await callback_query.message.edit_caption(
+                caption=START_TEXT,
+                reply_markup=start_keyboard,
+                parse_mode=ParseMode.MARKDOWN
+            )
+        elif callback_query.data == "about":
+            await callback_query.message.edit_caption(
+                caption=ABOUT_TEXT,
+                reply_markup=start_keyboard,
+                parse_mode=ParseMode.HTML
+            )
+        elif callback_query.data == "help":
+            await callback_query.message.edit_caption(
+                caption=HELP_TEXT,
+                reply_markup=start_keyboard,
+                parse_mode=ParseMode.MARKDOWN
+            )
+        elif callback_query.data == "support":
+            await callback_query.message.edit_caption(
+                caption=SUPPORT_TEXT,
+                reply_markup=start_keyboard,
+                parse_mode=ParseMode.HTML
+            )
+    except Exception as e:
+        print(f"Callback query error: {str(e)}")
+        await callback_query.answer("Error occurred!", show_alert=True)
 
 async def start_bot():
     try:
