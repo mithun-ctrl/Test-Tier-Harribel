@@ -252,7 +252,7 @@ async def caption_command(client, message):
         if include_database:
             additional_message = f"""`[PirecyKings2] {movie_data['movie_p']} ({movie_data['year_p']}) @pirecykings2.mkv`
             
-            `{movie_data['movie_p']} ({movie_data['year_p']}) \n 480p - 1080p [{movie_data['audio_p']}]` """
+            ```{movie_data['movie_p']} ({movie_data['year_p']}) \n 480p - 1080p [{movie_data['audio_p']}]``` """
             await client.send_message(
                 chat_id=message.chat.id,
                 text=additional_message,
