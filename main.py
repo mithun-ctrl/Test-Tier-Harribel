@@ -195,7 +195,7 @@ async def caption_command(client, message):
 
         movie_name = " ".join(parts[1:-1])
         include_filename = "-f" in parts or "-filename" in parts
-        include_database = "-db" in parts or "-database" in parts
+        include_database = "-fdb" in parts or "-filenamedb" in parts
 
         # Show "Fetching movie details..." message
         status_message = await message.reply_text("Fetching movie details... Please wait!")
@@ -250,17 +250,10 @@ async def caption_command(client, message):
 
         # Add additional message if -db or -database is present
         if include_database:
-            additional_message = f"""**{movie_data['movie_p']} ({movie_data['year_p']})**
-**480p - 1080p [{movie_data['audio_p']}]**"""
-            await client.send_message(
-                chat_id=message.chat.id,
-                text=additional_message,
-                parse_mode=ParseMode.MARKDOWN
-            )
-
-        # Add additional message if -f, -filename, -db, and -database are all present
-        if include_filename and include_database:
             additional_message = f"`[PirecyKings2] {movie_data['movie_p']} ({movie_data['year_p']}) @pirecykings2.mkv`"
+            
+            f"`{movie_data['movie_p']} ({movie_data['year_p']})**
+**480p - 1080p [{movie_data['audio_p']}]`"
             await client.send_message(
                 chat_id=message.chat.id,
                 text=additional_message,
