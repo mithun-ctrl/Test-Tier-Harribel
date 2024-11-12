@@ -247,10 +247,20 @@ async def caption_command(client, message):
                 text=additional_message,
                 parse_mode=ParseMode.MARKDOWN
             )
-            
+
+        # Add additional message if -db or -database is present
         if include_database:
             additional_message = f"""**{movie_data['movie_p']} ({movie_data['year_p']})**
-            **480p - 1080p [{movie_data['audio_p']}]**"""
+**480p - 1080p [{movie_data['audio_p']}]**"""
+            await client.send_message(
+                chat_id=message.chat.id,
+                text=additional_message,
+                parse_mode=ParseMode.MARKDOWN
+            )
+
+        # Add additional message if -f, -filename, -db, and -database are all present
+        if include_filename and include_database:
+            additional_message = f"`[PirecyKings2] {movie_data['movie_p']} ({movie_data['year_p']}) @pirecykings2.mkv`"
             await client.send_message(
                 chat_id=message.chat.id,
                 text=additional_message,
