@@ -87,43 +87,6 @@ def format_caption(movie, year, audio, genre, imdbRating, synopsis):
 >[𝗜𝗳 𝗬𝗼𝘂 𝗦𝗵𝗮𝗿𝗲 𝗢𝘂𝗿 𝗙𝗶𝗹𝗲𝘀 𝗪𝗶𝘁𝗵𝗼𝘂𝘁 𝗖𝗿𝗲𝗱𝗶𝘁, 𝗧𝗵𝗲𝗻 𝗬𝗼𝘂 𝗪𝗶𝗹𝗹 𝗯𝗲 𝗕𝗮𝗻𝗻𝗲𝗱]"""
     return caption
 
-espada.on_message(filters.command(["stats"]))
-async def stats_command(client, message):
-    await stats_handler.handle_stats_command(message)
-
-@espada.on_callback_query()
-async def callback_query(client, callback_query: CallbackQuery):
-    try:
-        if callback_query.data == "refresh_stats":
-            await stats_handler.refresh_stats(callback_query)
-        elif callback_query.data == "home":
-            await callback_query.message.edit_caption(
-                caption=START_TEXT,
-                reply_markup=start_keyboard,
-                parse_mode=ParseMode.MARKDOWN
-            )
-        elif callback_query.data == "about":
-            await callback_query.message.edit_caption(
-                caption=ABOUT_TEXT,
-                reply_markup=start_keyboard,
-                parse_mode=ParseMode.HTML
-            )
-        elif callback_query.data == "help":
-            await callback_query.message.edit_caption(
-                caption=HELP_TEXT,
-                reply_markup=start_keyboard,
-                parse_mode=ParseMode.MARKDOWN
-            )
-        elif callback_query.data == "support":
-            await callback_query.message.edit_caption(
-                caption=SUPPORT_TEXT,
-                reply_markup=start_keyboard,
-                parse_mode=ParseMode.HTML
-            )
-    except Exception as e:
-        print(f"Callback query error: {str(e)}")
-        await callback_query.answer("Error occurred!", show_alert=True)
-
 @espada.on_message(filters.command(["start"]))
 async def start_command(client, message):
     try:
