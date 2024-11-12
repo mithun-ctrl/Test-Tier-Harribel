@@ -10,7 +10,7 @@ from io import BytesIO
 from plugins.logs import Logger
 from script import START_TEXT, HELP_TEXT, SUPPORT_TEXT, ABOUT_TEXT
 import time
-
+import psutil
 
 # Get environment variables
 api_id = int(os.getenv("API_ID"))
@@ -25,15 +25,66 @@ if not all([api_id, api_hash, bot_token, omdb_api_key, log_channel]):
 espada = Client("movie_caption_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
 logger = Logger(espada)
 
-
 # Define keyboard layouts
 start_keyboard = InlineKeyboardMarkup([
     [InlineKeyboardButton("🏠 Home", callback_data="home"),
-     InlineKeyboardButton("🤖 About", callback_data="about")
-     ],
+     InlineKeyboardButton("🤖 About", callback_data="about")],
     [InlineKeyboardButton("💬 Support", callback_data="support"),
-     InlineKeyboardButton("ℹ️ Help", callback_data="help")]
+     InlineKeyboardButton("ℹ️ Help", callback_data="help")],
+    [InlineKeyboardButton("📊 Stats", callback_data="stats")]
 ])
+
+# Helper function to get bot uptime
+def get_uptime():
+    uptime = time.time() - espada.start_time
+    hours, remainder = divmod(uptime, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return f"{int(hours)}h {int(minutes)}m {int(seconds)}s"
+
+# Helper function to get memory usage
+def get_memory_usage():
+    process = psutil.Process(os.getpid())
+    memory_usage = process.memory_info().rss / 1024 ** 2
+    return f"{memory_usage:.2f} MB"
+
+# Define the /stats command
+@espada.on_message(filters.command(["stats"]))
+async def stats_command(client, message):
+    try:
+        # Get uptime, total users, and memory usage
+        uptime = get_uptime()
+        total_users = len(await client.get_users())
+        memory_usage = get_memory_usage()
+
+        # Construct the stats message
+        stats_text = (
+            "**Bot Statistics:**\n\n"
+            f"• **Uptime:** {uptime}\n"
+            f"• **Total Users:** {total_users:,}\n"
+            f"• **Memory Usage:** {memory_usage}"
+        )
+
+        # Send the stats message
+        await message.reply_text(stats_text, parse_mode=ParseMode.MARKDOWN)
+
+        # Log the stats command
+        await logger.log_message(
+            action="Stats Command",
+            user_id=message.from_user.id,
+            username=message.from_user.username,
+            chat_id=message.chat.id
+        )
+
+    except Exception as e:
+        await message.reply_text("An error occurred while processing your request. Please try again later.")
+        print(f"Stats command error: {str(e)}")
+        await logger.log_message(
+            action="Stats Command Error",
+            user_id=message.from_user.id,
+            username=message.from_user.username,
+            chat_id=message.chat.id,
+            error=e
+        )
 
 async def download_image(url):
     """Download image from URL"""
