@@ -1,181 +1,156 @@
-from datetime import datetime
-import pytz
-import psutil
 import time
+import datetime
 import os
 import git
-import platform
-from pyrogram.types import Message
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.enums import ParseMode
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-import asyncio
 
 class Stats:
     def __init__(self, client):
-        self.start_time = time.time()
         self.client = client
-        self.repo = git.Repo(search_parent_directories=True)
-        self.ist_tz = pytz.timezone('Asia/Kolkata')
+        self.start_time = time.time()
+        self.repo = self._get_repo()
         
-    def get_readable_time(self, seconds: int) -> str:
-        """Convert seconds into human readable format"""
-        result = ""
-        time_dict = {
-            "days": seconds // (24 * 3600),
-            "hours": (seconds % (24 * 3600)) // 3600,
-            "minutes": (seconds % 3600) // 60,
-            "seconds": seconds % 60
-        }
-        
-        for unit, value in time_dict.items():
-            if value > 0:
-                result += f"{value} {unit} " if value > 1 else f"{value} {unit[:-1]} "
-                
-        return result.strip() or "0 seconds"
-
-    def get_ist_time(self, timestamp):
-        """Convert timestamp to IST datetime"""
-        utc_dt = datetime.fromtimestamp(timestamp).replace(tzinfo=pytz.UTC)
-        ist_dt = utc_dt.astimezone(self.ist_tz)
-        return ist_dt
-    
-    def get_size(self, bytes_value):
-        """Get size in readable format"""
-        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
-            if bytes_value < 1024.0:
-                return f"{bytes_value:.2f} {unit}"
-            bytes_value /= 1024.0
-
-    async def get_bot_users(self):
-        """Get total number of bot users"""
+    def _get_repo(self):
+        """Get git repo information if available"""
         try:
-            # You should implement this based on how you store user data
-            # This is just a placeholder
-            return "Coming soon"
-        except Exception as e:
-            return "Error counting users"
-
-    async def get_stats(self) -> str:
-        """Get all stats in formatted string"""
+            return git.Repo(search_parent_directories=True)
+        except:
+            return None
+            
+    def _get_last_commit_info(self):
+        """Get the last commit date and time ago"""
+        if not self.repo:
+            return "N/A", "N/A"
+            
         try:
-            # System Info
-            cpu_usage = psutil.cpu_percent()
-            ram = psutil.virtual_memory()
-            disk = psutil.disk_usage('/')
-            
-            # Bot Info
-            bot_uptime = self.get_readable_time(int(time.time() - self.start_time))
-            python_version = platform.python_version()
-            pyrogram_version = "2.0.106"  # Update this based on your pyrogram version
-            
-            # Git Info
             last_commit = self.repo.head.commit
-            commit_date = self.get_ist_time(last_commit.committed_date)
-            time_since_commit = self.get_readable_time(int(time.time() - last_commit.committed_date))
+            last_commit_date = datetime.datetime.fromtimestamp(last_commit.committed_date)
+            time_ago = datetime.datetime.now() - last_commit_date
             
-            # Current Time in IST
-            current_time = self.get_ist_time(time.time())
+            # Format time ago in a human-readable way
+            if time_ago.days > 0:
+                time_ago_str = f"{time_ago.days} days ago"
+            elif time_ago.seconds >= 3600:
+                hours = time_ago.seconds // 3600
+                time_ago_str = f"{hours} hours ago"
+            elif time_ago.seconds >= 60:
+                minutes = time_ago.seconds // 60
+                time_ago_str = f"{minutes} minutes ago"
+            else:
+                time_ago_str = f"{time_ago.seconds} seconds ago"
+                
+            return last_commit_date.strftime("%Y-%m-%d %H:%M:%S"), time_ago_str
+        except:
+            return "N/A", "N/A"
             
-            # Get total users
-            total_users = await self.get_bot_users()
+    def _get_uptime(self):
+        """Get bot uptime"""
+        uptime = int(time.time() - self.start_time)
+        days = uptime // (24 * 3600)
+        uptime = uptime % (24 * 3600)
+        hours = uptime // 3600
+        uptime %= 3600
+        minutes = uptime // 60
+        uptime %= 60
+        seconds = uptime
+        
+        if days > 0:
+            return f"{days}d, {hours}h {minutes}m {seconds}s"
+        elif hours > 0:
+            return f"{hours}h {minutes}m {seconds}s"
+        elif minutes > 0:
+            return f"{minutes}m {seconds}s"
+        else:
+            return f"{seconds}s"
             
-            # Format stats message
-            stats_text = f"""
-╭─❰ 𝗕𝗢𝗧 𝗦𝗧𝗔𝗧𝗜𝗦𝗧𝗜𝗖𝗦 ❱
-├・ **Server Time:** `{current_time.strftime('%I:%M:%S %p IST')}`
-├・ **Date:** `{current_time.strftime('%d %B, %Y')}`
-├・ **Bot Uptime:** `{bot_uptime}`
-├・ **Total Users:** `{total_users}`
-│
-├─❰ 𝗟𝗔𝗦𝗧 𝗨𝗣𝗗𝗔𝗧𝗘 ❱
-├・ **Last Commit:** 
-├  `{commit_date.strftime('%d %B, %Y')}`
-├  `{commit_date.strftime('%I:%M:%S %p IST')}`
-├・ **Time Since Update:**
-├  `{time_since_commit}`
-│
-├─❰ 𝗦𝗬𝗦𝗧𝗘𝗠 𝗦𝗧𝗔𝗧𝗦 ❱
-├・ **CPU Usage:** `{cpu_usage}%`
-├・ **RAM Usage:** `{ram.percent}%`
-├・ **Storage Used:** `{disk.percent}%`
-├・ **Total Memory:** `{self.get_size(ram.total)}`
-├・ **Used Memory:** `{self.get_size(ram.used)}`
-├・ **Total Storage:** `{self.get_size(disk.total)}`
-│
-├─❰ 𝗦𝗢𝗙𝗧𝗪𝗔𝗥𝗘 𝗜𝗡𝗙𝗢 ❱
-├・ **Python:** `{python_version}`
-├・ **Pyrogram:** `{pyrogram_version}`
-├・ **Bot Memory:** `{self.get_size(psutil.Process().memory_info().rss)}`
-│
-├─❰ 𝗖𝗢𝗠𝗠𝗜𝗧 𝗗𝗘𝗧𝗔𝗜𝗟𝗦 ❱
-├・ **Last Commit Message:**
-╰ `{last_commit.message.strip()}`
-
-**⌚️ Last Updated:** `{current_time.strftime('%I:%M:%S %p IST')}`
-"""
-            return stats_text
-            
-        except Exception as e:
-            return f"❌ Error getting stats: {str(e)}"
+    async def _get_total_users(self):
+        """Get total number of users who have started the bot"""
+        try:
+            # You might want to implement this based on your user tracking mechanism
+            # This is just a placeholder that counts messages in the log channel
+            messages = []
+            async for message in self.client.get_chat_history(os.getenv('LOG_CHANNEL')):
+                if "Start Command" in message.text:
+                    messages.append(message)
+            return len(set(msg.text.split('User ID: ')[1].split('\n')[0] for msg in messages))
+        except:
+            return 0
 
     async def handle_stats_command(self, message: Message):
         """Handle the /stats command"""
+        # Send loading message
+        loading_msg = await message.reply_text("Fetching stats... ⌛")
+        
         try:
-            # Send "Getting stats..." message with loading animation
-            loading_text = "Getting Statistics"
-            status_message = await message.reply_text(loading_text)
+            # Gather all stats
+            last_commit_date, time_ago = self._get_last_commit_info()
+            uptime = self._get_uptime()
+            total_users = await self._get_total_users()
             
-            # Animate loading message
-            for _ in range(3):
-                for dots in ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]:
-                    await status_message.edit_text(f"{loading_text} {dots}")
-                    await asyncio.sleep(0.3)
-            
-            # Get formatted stats
-            stats_text = await self.get_stats()
-            
-            # Create keyboard
-            keyboard = InlineKeyboardMarkup([
-                [
-                    InlineKeyboardButton("♻️ Refresh", callback_data="refresh_stats"),
-                    InlineKeyboardButton("🏠 Home", callback_data="home")
-                ]
-            ])
-            
-            # Edit message with stats
-            await status_message.edit_text(
-                text=stats_text,
-                reply_markup=keyboard,
-                parse_mode=ParseMode.MARKDOWN
-            )
-            
-        except Exception as e:
-            await message.reply_text("❌ Error fetching stats. Please try again later.")
-            print(f"Stats command error: {str(e)}")
+            # Create stats message
+            stats_text = f"""
+📊 **Bot Statistics**
 
-    async def refresh_stats(self, callback_query):
-        """Refresh stats for callback query"""
-        try:
-            # Get new stats
-            stats_text = await self.get_stats()
+🔄 **Last Commit:** {last_commit_date}
+⏰ **Time Since Commit:** {time_ago}
+⚡ **Bot Uptime:** {uptime}
+👥 **Total Users:** {total_users}
+
+_Stats last updated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}_
+"""
             
-            # Update keyboard
+            # Create keyboard with refresh button
             keyboard = InlineKeyboardMarkup([
-                [
-                    InlineKeyboardButton("♻️ Refresh", callback_data="refresh_stats"),
-                    InlineKeyboardButton("🏠 Home", callback_data="home")
-                ]
+                [InlineKeyboardButton("🔄 Refresh Stats", callback_data="refresh_stats")],
+                [InlineKeyboardButton("🏠 Back to Home", callback_data="home")]
             ])
             
-            # Edit message with new stats
-            await callback_query.message.edit_text(
-                text=stats_text,
+            # Edit loading message with stats
+            await loading_msg.edit_text(
+                stats_text,
                 reply_markup=keyboard,
                 parse_mode=ParseMode.MARKDOWN
             )
             
-            await callback_query.answer("Statistics refreshed!")
+        except Exception as e:
+            await loading_msg.edit_text(f"Error fetching stats: {str(e)}")
+            
+    async def refresh_stats(self, callback_query):
+        """Handle refresh stats button press"""
+        try:
+            # Show loading state
+            await callback_query.answer("Refreshing stats...")
+            
+            # Gather fresh stats
+            last_commit_date, time_ago = self._get_last_commit_info()
+            uptime = self._get_uptime()
+            total_users = await self._get_total_users()
+            
+            # Update stats message
+            stats_text = f"""
+📊 **Bot Statistics**
+
+🔄 **Last Commit:** {last_commit_date}
+⏰ **Time Since Commit:** {time_ago}
+⚡ **Bot Uptime:** {uptime}
+👥 **Total Users:** {total_users}
+
+_Stats last updated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}_
+"""
+            
+            # Keep the same keyboard
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔄 Refresh Stats", callback_data="refresh_stats")],
+                [InlineKeyboardButton("🏠 Back to Home", callback_data="home")]
+            ])
+            
+            # Update the message
+            await callback_query.message.edit_text(
+                stats_text,
+                reply_markup=keyboard,
+                parse_mode=ParseMode.MARKDOWN
+            )
             
         except Exception as e:
-            print(f"Error refreshing stats: {str(e)}")
-            await callback_query.answer("Error refreshing stats!", show_alert=True)
+            await callback_query.answer(f"Error refreshing stats: {str(e)}", show_alert=True)
