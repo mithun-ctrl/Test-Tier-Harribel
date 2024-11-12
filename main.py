@@ -36,7 +36,8 @@ start_keyboard = InlineKeyboardMarkup([
 
 # Helper function to get bot uptime
 def get_uptime():
-    uptime = time.time() - espada.start_time
+    start_time = time.time()
+    uptime = time.time() - start_time
     hours, remainder = divmod(uptime, 3600)
     minutes, seconds = divmod(remainder, 60)
     return f"{int(hours)}h {int(minutes)}m {int(seconds)}s"
