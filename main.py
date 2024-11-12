@@ -9,7 +9,6 @@ import aiohttp
 from io import BytesIO
 from plugins.logs import Logger
 from script import START_TEXT, HELP_TEXT, SUPPORT_TEXT, ABOUT_TEXT
-from plugins.stats import Stats
 import time
 
 
@@ -25,7 +24,7 @@ if not all([api_id, api_hash, bot_token, omdb_api_key, log_channel]):
 # Initialize the bot
 espada = Client("movie_caption_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
 logger = Logger(espada)
-stats_handler = Stats(espada)
+
 
 # Define keyboard layouts
 start_keyboard = InlineKeyboardMarkup([
