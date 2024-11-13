@@ -290,9 +290,13 @@ async def caption_command(client, message):
             error=e
         )
 
-@espada.on_message(~filters.command("start", "caption"))
+@espada.on_message(~filters.command(["start", "caption"]) & ~filters.chat_type.channel & ~filters.chat_type.group)
 async def default_response(client, message):
     try:
+        # Check if the bot is an admin in the chat
+        chat_member = await espada.get_chat_member(message.chat.id, espada.me.id)
+        if chat_member.status != "member":
+            return
         # Send a default message in response
         await message.reply_text("⚠ Invaild command!")
 
