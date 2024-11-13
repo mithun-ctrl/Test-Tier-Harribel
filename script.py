@@ -30,7 +30,7 @@ SUPPORT_TEXT = """
 
 
 MOVIE_TEXT= f"""
-     🎥 ɢᴇᴛ ᴍᴏᴠɪᴇs-ᴀɴɪᴍᴇ ᴀᴄᴄᴇss 
+    🎥 ɢᴇᴛ ᴍᴏᴠɪᴇs-ᴀɴɪᴍᴇ ᴀᴄᴄᴇss 
     ├ ᴍᴏᴠɪᴇ's ᴄʜᴀɴɴᴇʟ:  <a href="https://t.me/PirecyKings2">ᴘɪʀᴇᴄʏ ᴋɪɴɢs𝟸</a>
     ├ ᴀɴɪᴍᴇ's ᴄʜᴀɴɴᴇʟ: <a href="https://t.me/Animeke14hai">ᴀɴɪᴍᴇ ᴋᴇ 𝟷𝟺</a>
     ├ ᴍᴏᴠɪᴇ's ɢʀᴏᴜᴘ: <a href="https://t.me/pirecykingstalks">ᴘɪʀᴇᴄʏ ᴋɪɴɢs𝟸 ᴛᴀʟᴋ</a>
