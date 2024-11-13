@@ -302,7 +302,6 @@ async def default_response(client, message):
             user_id=message.from_user.id,
             username=message.from_user.username,
             chat_id=message.chat.id,
-            message=message.text
         )
 
     except Exception as e:
