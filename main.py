@@ -290,7 +290,7 @@ async def caption_command(client, message):
             error=e
         )
 
-@espada.on_message(~filters.command())
+@espada.on_message(~filters.command("start", "caption"))
 async def default_response(client, message):
     try:
         # Send a default message in response
