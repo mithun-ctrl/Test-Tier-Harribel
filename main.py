@@ -294,7 +294,7 @@ async def caption_command(client, message):
 async def default_response(client, message):
     try:
         # Send a default message in response
-        await message.reply_text("Sorry, I didn't understand that command. Please try again or use the /help command to see what I can do.")
+        await message.reply_text("⚠ Invaild command!")
 
         # Log the default response
         await logger.log_message(
