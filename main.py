@@ -290,6 +290,31 @@ async def caption_command(client, message):
             error=e
         )
 
+@espada.on_message(~filters.command())
+async def default_response(client, message):
+    try:
+        # Send a default message in response
+        await message.reply_text("Sorry, I didn't understand that command. Please try again or use the /help command to see what I can do.")
+
+        # Log the default response
+        await logger.log_message(
+            action="Default Response",
+            user_id=message.from_user.id,
+            username=message.from_user.username,
+            chat_id=message.chat.id,
+            message=message.text
+        )
+
+    except Exception as e:
+        print(f"Default response error: {str(e)}")
+        await logger.log_message(
+            action="Default Response Error",
+            user_id=message.from_user.id,
+            username=message.from_user.username,
+            chat_id=message.chat.id,
+            error=e
+        )
+
 
 async def start_bot():
     try:
