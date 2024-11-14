@@ -102,9 +102,9 @@ def format_series_caption(movie, year, audio, genre, imdbRating, synopsis):
  ‣ 𝗚𝗲𝗻𝗿𝗲𝘀:{genre}
 ╰──────────────────────
 ┌────────────────────────
-│S1) [𝟺𝟾𝟶ᴘ] [𝟽𝟸𝟶ᴘ] [𝟷𝟶𝟾𝟶ᴘ]
+│S1)  [𝟺𝟾𝟶ᴘ]  [𝟽𝟸𝟶ᴘ]  [𝟷𝟶𝟾𝟶ᴘ]
 │
-│S1) [𝟺𝟾𝟶ᴘ] [𝟽𝟸𝟶ᴘ] [𝟷𝟶𝟾𝟶ᴘ]
+│S1)  [𝟺𝟾𝟶ᴘ]  [𝟽𝟸𝟶ᴘ]  [𝟷𝟶𝟾𝟶ᴘ]
 └────────────────────────
 │[Click Here To Access Files]
 └────────────────────────
@@ -387,7 +387,11 @@ async def series_command(client, message):
         if include_database:
             additional_message = f"""`[PirecyKings2] [Sseason Eepisode] {series_data['movie_p']} ({series_data['year_p']}) @pirecykings2`
             
-            `{series_data['movie_p']} ({series_data['year_p']}) 480p - 1080p [{series_data['audio_p']}]`"""
+            `S01 English - Hindi [480p]`
+            
+            `S01 English - Hindi [720p]`
+            
+            `S01 English - Hindi [1080p]`"""
             await client.send_message(
                 chat_id=message.chat.id,
                 text=additional_message,
