@@ -8,10 +8,11 @@ import asyncio
 import aiohttp
 from io import BytesIO
 from plugins.logs import Logger
-from script import START_TEXT, HELP_TEXT, SUPPORT_TEXT, ABOUT_TEXT, MOVIE_TEXT
+from script import START_TEXT, HELP_TEXT, SUPPORT_TEXT, ABOUT_TEXT,MOVIE_TEXT
 import time
 
 
+# Get environment variables
 api_id = int(os.getenv("API_ID"))
 api_hash = os.getenv("API_HASH")
 bot_token = os.getenv("BOT_TOKEN")
@@ -28,13 +29,13 @@ logger = Logger(espada)
 # Define keyboard layouts
 start_keyboard = InlineKeyboardMarkup([
     [InlineKeyboardButton("🏠 Home", callback_data="home"),
-     InlineKeyboardButton("🤖 About", callback_data="about")],
+     InlineKeyboardButton("🤖 About", callback_data="about")
+     ],
     [InlineKeyboardButton("💬 Support", callback_data="support"),
      InlineKeyboardButton("ℹ️ Help", callback_data="help")],
     [InlineKeyboardButton("🍿 Movie-Anime", callback_data="movie")]
+    
 ])
-
-user_opt_in = {}
 
 async def download_image(url):
     """Download image from URL"""
@@ -96,7 +97,7 @@ def format_series_caption(movie, year, audio, genre, imdbRating, synopsis):
  ‣ 𝗘𝗽𝗶𝘀𝗼𝗱𝗲𝘀: 𝟬𝟭-𝟬8
  ‣ 𝗜𝗠𝗗𝗯 𝗥𝗮𝘁𝗶𝗻𝗴𝘀: {imdbRating}
  ‣ 𝗣𝗶𝘅𝗲𝗹𝘀: 𝟰𝟴𝟬𝗽, 𝟳𝟮𝟬𝗽, 𝟭𝟬𝟴𝟬𝗽
- ‣ 𝗔𝘂𝗱𝗶𝗼:  {audio} हिंदी
+ ‣ 𝗔𝘂𝗱𝗶𝗼:  {audio} हिंदी
 ├──────────────────────
  ‣ 𝗚𝗲𝗻𝗿𝗲𝘀:{genre}
 ╰──────────────────────
@@ -117,62 +118,51 @@ def format_series_caption(movie, year, audio, genre, imdbRating, synopsis):
 @espada.on_message(filters.command(["start"]))
 async def start_command(client, message):
     try:
+        # Send loading message
+        loading_message = await message.reply_text("Loading... Please wait ⌛")
         
-        if message.from_user.id in user_opt_in and user_opt_in[message.from_user.id]:
-                 
-            # Send loading message
-            loading_message = await message.reply_text("Loading... Please wait ⌛")
-            start_image = await download_image("https://jpcdn.it/img/small/682f656e6957597eebce76a1b99ea9e4.jpg")        
-            if start_image:
-                # Convert image data to BytesIO
-                image_stream = BytesIO(start_image)
-                image_stream.name = "start_image.jpg"
-                
-                # Send image with caption and buttons
-                await client.send_photo(
-                    chat_id=message.chat.id,
-                    photo=image_stream,
-                    caption=START_TEXT,
-                    reply_markup=start_keyboard,
-                    parse_mode=ParseMode.MARKDOWN
-                )
-            else:
-                # Fallback if image download fails
-                await message.reply_text(
-                    START_TEXT,
-                    reply_markup=start_keyboard,
-                    parse_mode=ParseMode.MARKDOWN
-                )
-
-            # Delete the loading message
-            await loading_message.delete()
-
-            # Log the start command with correct function call
-            await logger.log_message(
-                action="Start Command",
-                user_id=message.from_user.id,
-                username=message.from_user.username,
-                chat_id=message.chat.id
-            ) 
-        else:
-            opt_in_message = (
-                "Welcome to the Movie Caption Bot! Would you like to opt-in to have your messages saved?\n\n"
-                "By opting in, your messages will be saved for moderation and support purposes. "
-                "Your data will be handled with care and will not be shared with any third parties."
-            )
+        # Attempt to download and send the start image
+        start_image = await download_image("https://jpcdn.it/img/small/682f656e6957597eebce76a1b99ea9e4.jpg")
+        if start_image:
+            # Convert image data to BytesIO
+            image_stream = BytesIO(start_image)
+            image_stream.name = "start_image.jpg"
             
-            opt_in_keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton("Opt-in", callback_data="opt_in")],
-                [InlineKeyboardButton("No, thanks", callback_data="opt_out")]
-            ])
-            await message.reply(opt_in_message, reply_markup=opt_in_keyboard)
-        
+            # Send image with caption and buttons
+            await client.send_photo(
+                chat_id=message.chat.id,
+                photo=image_stream,
+                caption=START_TEXT,
+                reply_markup=start_keyboard,
+                parse_mode=ParseMode.MARKDOWN
+            )
+        else:
+            # Fallback if image download fails
+            await message.reply_text(
+                START_TEXT,
+                reply_markup=start_keyboard,
+                parse_mode=ParseMode.MARKDOWN
+            )
+
+        # Delete the loading message
+        await loading_message.delete()
+
+        # Log the start command with correct function call
+        await logger.log_message(
+            action="Start Command",
+            user_id=message.from_user.id,
+            username=message.from_user.username,
+            chat_id=message.chat.id
+        )
+
     except Exception as e:
-        
+        # Try to delete loading message if it exists and there's an error
         try:
             await loading_message.delete()
         except:
             pass
+            
+        # Send an error message to the user and log the error
         await message.reply_text("An error occurred. Please try again later.")
         print(f"Start command error: {str(e)}")
         
@@ -189,49 +179,39 @@ async def start_command(client, message):
 @espada.on_callback_query()
 async def callback_query(client, callback_query: CallbackQuery):
     try:
+        if callback_query.data == "home":
+            await callback_query.message.edit_caption(
+                caption=START_TEXT,
+                reply_markup=start_keyboard,
+                parse_mode=ParseMode.MARKDOWN
+            )
+        elif callback_query.data == "about":
+            await callback_query.message.edit_caption(
+                caption = ABOUT_TEXT,
+                reply_markup = start_keyboard,
+                parse_mode = ParseMode.HTML
+            )
         
-        if callback_query.data == "opt_in":
-             # User opted in, update the user_opt_in dictionary
-            user_opt_in[callback_query.from_user.id] = True
-            await callback_query.message.edit_text("You have opted in. Your messages will now be saved.")
-        elif callback_query.data == "opt_out":
-            # User opted out, update the user_opt_in dictionary
-            user_opt_in[callback_query.from_user.id] = False
-            await callback_query.message.edit_text("You have opted out. Your messages will not be saved.")
-        else:
+        elif callback_query.data == "help":
+            await callback_query.message.edit_caption(
+                caption=HELP_TEXT,
+                reply_markup=start_keyboard,
+                parse_mode=ParseMode.MARKDOWN
+            )
         
-            if callback_query.data == "home":
-                await callback_query.message.edit_caption(
-                    caption=START_TEXT,
-                    reply_markup=start_keyboard,
-                    parse_mode=ParseMode.MARKDOWN
-                )
-            elif callback_query.data == "about":
-                await callback_query.message.edit_caption(
-                    caption = ABOUT_TEXT,
-                    reply_markup = start_keyboard,
-                    parse_mode = ParseMode.HTML
-                )
-            
-            elif callback_query.data == "help":
-                await callback_query.message.edit_caption(
-                    caption=HELP_TEXT,
-                    reply_markup=start_keyboard,
-                    parse_mode=ParseMode.MARKDOWN
-                )
-            
-            elif callback_query.data == "support":
-                await callback_query.message.edit_caption(
-                    caption=SUPPORT_TEXT,
-                    reply_markup=start_keyboard,
-                    parse_mode=ParseMode.HTML
-                )
-            elif callback_query.data == "movie":
-                await callback_query.message.edit_caption(
-                    caption=MOVIE_TEXT,
-                    reply_markup=start_keyboard,
-                    parse_mode=ParseMode.HTML
-                )
+        elif callback_query.data == "support":
+            await callback_query.message.edit_caption(
+                caption=SUPPORT_TEXT,
+                reply_markup=start_keyboard,
+                parse_mode=ParseMode.HTML
+            )
+        elif callback_query.data == "movie":
+            await callback_query.message.edit_caption(
+                 caption=MOVIE_TEXT,
+                 reply_markup=start_keyboard,
+                 parse_mode=ParseMode.HTML
+            )
+        
         await callback_query.answer()
     except Exception as e:
         print(f"Callback query error: {str(e)}")
@@ -443,19 +423,17 @@ async def series_command(client, message):
 @espada.on_message(~filters.command(["start", "caption", "series"]) & ~filters.channel & ~filters.group)
 async def default_response(client, message):
     try:
-        if message.from_user.id in user_opt_in and user_opt_in[message.from_user.id]:
-            # Send a default message in response
-            await message.reply_text("⚠ Invaild command!")
-            print(f"Saving message from {message.from_user.username}: {message.text}")
-            # Log the default response
-            await logger.log_message(
-                action="Default Response",
-                user_id=message.from_user.id,
-                username=message.from_user.username,
-                chat_id=message.chat.id,
-            )
-        else:
-            pass
+        # Send a default message in response
+        await message.reply_text("⚠ Invaild command!")
+
+        # Log the default response
+        await logger.log_message(
+            action="Default Response",
+            user_id=message.from_user.id,
+            username=message.from_user.username,
+            chat_id=message.chat.id,
+        )
+
     except Exception as e:
         print(f"Default response error: {str(e)}")
         await logger.log_message(
