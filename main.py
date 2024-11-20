@@ -9,13 +9,13 @@ import aiohttp
 from io import BytesIO
 from plugins.logs import Logger
 from script import START_TEXT, HELP_TEXT, SUPPORT_TEXT, ABOUT_TEXT,MOVIE_TEXT
-from fetchMovieData import fetch_movie_data, omdb_api_key
 
 # Get environment variables
 api_id = int(os.getenv("API_ID"))
 api_hash = os.getenv("API_HASH")
 bot_token = os.getenv("BOT_TOKEN")
 log_channel = int(os.getenv('LOG_CHANNEL'))
+omdb_api_key = os.getenv("OMDB_API_KEY")
 
 if not all([api_id, api_hash, bot_token, omdb_api_key, log_channel]):
     raise ValueError("Please set the API_ID, API_HASH, BOT_TOKEN, OMDB_API_KEY, and LOG_CHANNEL environment variables")
@@ -35,6 +35,30 @@ start_keyboard = InlineKeyboardMarkup([
     [InlineKeyboardButton("🍿 Movie-Anime", callback_data="movie")]
     
 ])
+
+
+
+async def fetch_movie_data(movie_name):
+    """Fetch movie data from OMDB API"""
+    url = f"http://www.omdbapi.com/?t={movie_name}&apikey={omdb_api_key}"
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            data = await response.json()
+            if data.get('Response') == 'True':
+                return {
+                    'movie_p': data.get('Title', movie_name),
+                    'year_p': data.get('Year', 'N/A'),
+                    'genre_p': data.get('Genre', 'N/A'),
+                    'imdbRating_p': data.get('imdbRating', 'N/A'),
+                    'runTime_p': data.get('Runtime', 'N/A'),
+                    'rated_p': data.get('Rated', 'U/A'),
+                    'synopsis_p': data.get('Plot', 'N/A'),
+                    'totalSeasons_p': data.get('totalSeasons', 'N/A'),
+                    'type_p': data.get('Type', 'N/A'),
+                    'audio_p': data.get('Language', 'N/A'),
+                    'poster': data.get('Poster', None)
+                }
+            return None
 
 async def download_image(url):
     """Download image from URL"""
