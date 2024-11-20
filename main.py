@@ -9,6 +9,7 @@ import aiohttp
 from io import BytesIO
 from plugins.logs import Logger
 from script import START_TEXT, HELP_TEXT, SUPPORT_TEXT, ABOUT_TEXT,MOVIE_TEXT
+import random
 
 # Get environment variables
 api_id = int(os.getenv("API_ID"))
@@ -100,8 +101,68 @@ async def download_poster(poster_url):
                     return await response.read()
     return None
 
-def format_caption(movie, year, audio, genre, imdbRating, runTime, rated, synopsis):
+def determine_audio(movie_details):
+    """
+    Determine audio language/type based on available information
+    
+    Args:
+        movie_details (dict): Movie details from Rapid API
+    Returns:
+        str: Audio language/type
+    """
+    
+    audio_options = [
+        'English',
+        'Hindi',
+        'Multi-Audio',
+        'Hindi Dubbed',
+        'English Dubbed'
+    ] 
+    
+    actors = movie_details.get('Actors', '').lower()
+    plot = movie_details.get('Plot', '').lower()
+    country = movie_details.get('Country', '').lower()
+    language = movie_details.get('Language', '').lower()
+    
+   
+    if 'india' in country or 'hindi' in language:
+        return 'Hindi'
+    
+    
+    if 'hindi' in actors or 'hindi' in plot:
+        return 'Hindi'
+    
+   
+    if 'usa' in country or 'uk' in country or 'english' in language:
+        return 'English'
+    
+    
+    if 'english' in actors or 'english' in plot:
+        return 'English'
+    
+    
+    if country and country not in ['usa', 'uk', 'india']:
+        if random.random() < 0.7:  
+            return 'Multi-Audio'
+        else:
+            return 'Hindi Dubbed'
+    
+    weights = [0.3, 0.2, 0.3, 0.1, 0.1]  # Adjusted weights for each audio_options
+    return random.choices(audio_options, weights=weights)[0]
+
+def format_caption(movie, year, audio, language, genre, imdbRating, runTime, rated, synopsis):
     """Format the caption with Markdown"""
+    
+    
+    movie_details = {
+        "Language": language,
+        "Genre": genre,
+        "Actors": "",  
+        "Plot": synopsis,
+        "Country": "",  
+    }
+    
+    audio = determine_audio()
     
     try:
         # Extract the number from the "Runtime" string (e.g., "57 min")
@@ -135,9 +196,17 @@ def format_caption(movie, year, audio, genre, imdbRating, runTime, rated, synops
 >[𝗜𝗳 𝗬𝗼𝘂 𝗦𝗵𝗮𝗿𝗲 𝗢𝘂𝗿 𝗙𝗶𝗹𝗲𝘀 𝗪𝗶𝘁𝗵𝗼𝘂𝘁 𝗖𝗿𝗲𝗱𝗶𝘁, 𝗧𝗵𝗲𝗻 𝗬𝗼𝘂 𝗪𝗶𝗹𝗹 𝗯𝗲 𝗕𝗮𝗻𝗻𝗲𝗱]"""
     return caption
 
-def format_series_caption(movie, year, audio, genre, imdbRating, totalSeason, type, synopsis):
+def format_series_caption(movie, year, audio, language, genre, imdbRating, totalSeason, type, synopsis):
     """Format the caption with Markdown"""
     
+    movie_details = {
+        "Language": language,
+        "Genre": genre,
+        "Actors": "",  
+        "Plot": synopsis,
+        "Country": "",  
+    }
+    audio = determine_audio(movie_details)
     season_count = ""
     
     try:
@@ -282,7 +351,7 @@ async def caption_command(client, message):
         if len(parts) < 2:
             await message.reply_text(
                 "Please provide a movie name.\n"
-                "Example: `/cm Inception`"
+                "Example: `/cm Kalki 2898 AD`"
             )
             return
 
@@ -386,7 +455,8 @@ async def process_title_selection(callback_query, imdb_id):
                 title_data.get('imdbRating', 'N/A'),
                 title_data.get('totalSeasons', 'N/A'),
                 title_data.get('Type', 'N/A'),
-                title_data.get('Plot', 'N/A')
+                title_data.get('Plot', 'N/A'),
+                title_data
             )
         else:
             caption = format_caption(
@@ -396,8 +466,9 @@ async def process_title_selection(callback_query, imdb_id):
                 title_data.get('Genre', 'N/A'),
                 title_data.get('imdbRating', 'N/A'),
                 title_data.get('Runtime', 'N/A'),
-                title_data.get('Rated', 'N/A'),
-                title_data.get('Plot', 'N/A')
+                title_data.get('Rated', 'U/A'),
+                title_data.get('Plot', 'N/A'),
+                title_data
             )
 
         # Handle poster
