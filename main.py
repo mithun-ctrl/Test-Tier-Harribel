@@ -119,50 +119,48 @@ def determine_audio(movie_details):
         'English Dubbed'
     ] 
     
-    actors = movie_details.get('Actors', '').lower()
-    plot = movie_details.get('Plot', '').lower()
-    country = movie_details.get('Country', '').lower()
-    language = movie_details.get('Language', '').lower()
+    # Safely get values and convert to lowercase, using empty string if not found
+    actors = str(movie_details.get('Actors', '')).lower()
+    plot = str(movie_details.get('Plot', '')).lower()
+    country = str(movie_details.get('Country', '')).lower()
+    language = str(movie_details.get('Language', '')).lower()
     
-   
+    # Check for Hindi content
     if 'india' in country or 'hindi' in language:
         return 'Hindi'
-    
     
     if 'hindi' in actors or 'hindi' in plot:
         return 'Hindi'
     
-   
+    # Check for English content
     if 'usa' in country or 'uk' in country or 'english' in language:
         return 'English'
-    
     
     if 'english' in actors or 'english' in plot:
         return 'English'
     
-    
+    # Default behavior for other cases
     if country and country not in ['usa', 'uk', 'india']:
         if random.random() < 0.7:  
             return 'Multi-Audio'
         else:
             return 'Hindi Dubbed'
     
-    weights = [0.3, 0.2, 0.3, 0.1, 0.1]  # Adjusted weights for each audio_options
+    # Use weighted random choice if no specific criteria met
+    weights = [0.3, 0.2, 0.3, 0.1, 0.1]
     return random.choices(audio_options, weights=weights)[0]
 
 def format_caption(movie, year, audio, language, genre, imdbRating, runTime, rated, synopsis):
     """Format the caption with Markdown"""
     
     
-    movie_details = {
+    audio = determine_audio({
         "Language": language,
         "Genre": genre,
-        "Actors": "",  
+        "Actors": "",
         "Plot": synopsis,
-        "Country": "",  
-    }
-    
-    audio = determine_audio(movie_details)
+        "Country": ""
+    })
     
     try:
         # Extract the number from the "Runtime" string (e.g., "57 min")
@@ -199,14 +197,13 @@ def format_caption(movie, year, audio, language, genre, imdbRating, runTime, rat
 def format_series_caption(movie, year, audio, language, genre, imdbRating, totalSeason, type, synopsis):
     """Format the caption with Markdown"""
     
-    movie_details = {
+    audio = determine_audio({
         "Language": language,
         "Genre": genre,
-        "Actors": "",  
+        "Actors": "",
         "Plot": synopsis,
-        "Country": "",  
-    }
-    audio = determine_audio(movie_details)
+        "Country": ""
+    })
     season_count = ""
     
     try:
@@ -434,8 +431,8 @@ async def default_response(client, message):
             error=e
         )
 async def process_title_selection(callback_query, imdb_id):
-   """Process the selected title and generate the appropriate caption"""
-   try:
+    """Process the selected title and generate the appropriate caption"""
+    try:
         # Show loading message
         loading_msg = await callback_query.message.edit_text("Fetching details... Please wait!")
 
@@ -451,24 +448,24 @@ async def process_title_selection(callback_query, imdb_id):
                 title_data.get('Title', 'N/A'),
                 title_data.get('Year', 'N/A'),
                 title_data.get('Language', 'N/A'),
+                title_data.get('Language', 'N/A'),  # Language passed twice intentionally
                 title_data.get('Genre', 'N/A'),
                 title_data.get('imdbRating', 'N/A'),
                 title_data.get('totalSeasons', 'N/A'),
                 title_data.get('Type', 'N/A'),
-                title_data.get('Plot', 'N/A'),
-                title_data
+                title_data.get('Plot', 'N/A')
             )
         else:
             caption = format_caption(
                 title_data.get('Title', 'N/A'),
                 title_data.get('Year', 'N/A'),
                 title_data.get('Language', 'N/A'),
+                title_data.get('Language', 'N/A'),  # Language passed twice intentionally
                 title_data.get('Genre', 'N/A'),
                 title_data.get('imdbRating', 'N/A'),
                 title_data.get('Runtime', 'N/A'),
                 title_data.get('Rated', 'U/A'),
-                title_data.get('Plot', 'N/A'),
-                title_data
+                title_data.get('Plot', 'N/A')
             )
 
         # Handle poster
@@ -499,7 +496,7 @@ async def process_title_selection(callback_query, imdb_id):
             caption,
             parse_mode=ParseMode.MARKDOWN
         )
-   except Exception as e:
+    except Exception as e:
         error_msg = f"Title selection error: {str(e)}"
         print(error_msg)
         await callback_query.message.edit_text(
