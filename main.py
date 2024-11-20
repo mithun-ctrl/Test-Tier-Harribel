@@ -365,24 +365,16 @@ async def default_response(client, message):
             error=e
         )
 async def process_title_selection(callback_query, imdb_id):
-    """Process the selected title and generate the appropriate caption"""
-    try:
+   """Process the selected title and generate the appropriate caption"""
+   try:
         # Show loading message
-        await callback_query.message.edit_text("Fetching details... Please wait!")
+        loading_msg = await callback_query.message.edit_text("Fetching details... Please wait!")
 
         # Get detailed information
         title_data = await get_title_details(imdb_id)
         if not title_data:
-            await callback_query.message.edit_text("Failed to fetch title details. Please try again.")
+            await loading_msg.edit_text("Failed to fetch title details. Please try again.")
             return
-
-        # Download poster
-        poster_data = None
-        if title_data.get('Poster') and title_data['Poster'] != 'N/A':
-            async with aiohttp.ClientSession() as session:
-                async with session.get(title_data['Poster']) as response:
-                    if response.status == 200:
-                        poster_data = await response.read()
 
         # Format caption based on type
         if title_data.get('Type') == 'series':
@@ -408,26 +400,40 @@ async def process_title_selection(callback_query, imdb_id):
                 title_data.get('Plot', 'N/A')
             )
 
-        # Send the final message with poster and caption
-        if poster_data:
-            poster_stream = BytesIO(poster_data)
-            poster_stream.name = "poster.jpg"
-            await callback_query.message.edit_media(
-                media=InputMediaPhoto(
-                    media=poster_stream,
-                    caption=caption,
-                    parse_mode=ParseMode.MARKDOWN
-                )
-            )
-        else:
-            await callback_query.message.edit_text(
-                caption,
-                parse_mode=ParseMode.MARKDOWN
-            )
-
-    except Exception as e:
-        print(f"Title selection error: {str(e)}")
-        await callback_query.message.edit_text("An error occurred while processing your selection. Please try again.")
+        # Handle poster
+        poster_url = title_data.get('Poster')
+        if poster_url and poster_url != 'N/A':
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(poster_url) as response:
+                        if response.status == 200:
+                            poster_data = await response.read()
+                            poster_stream = BytesIO(poster_data)
+                            poster_stream.name = f"poster_{imdb_id}.jpg"
+                            
+                            # Send new photo with caption
+                            await callback_query.message.delete()  # Delete loading message
+                            await callback_query.message.reply_photo(
+                                photo=poster_stream,
+                                caption=caption,
+                                parse_mode=ParseMode.MARKDOWN
+                            )
+                            return
+            except Exception as poster_error:
+                print(f"Poster download error: {str(poster_error)}")
+                # Continue to text-only fallback if poster fails
+        
+        # Fallback to text-only if no poster or poster download failed
+        await callback_query.message.edit_text(
+            caption,
+            parse_mode=ParseMode.MARKDOWN
+        )
+   except Exception as e:
+        error_msg = f"Title selection error: {str(e)}"
+        print(error_msg)
+        await callback_query.message.edit_text(
+            "An error occurred while processing your selection. Please try again."
+        )
 
 async def start_bot():
     try:
