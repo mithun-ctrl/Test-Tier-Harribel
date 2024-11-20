@@ -449,13 +449,25 @@ async def process_title_selection(callback_query, imdb_id):
             await loading_msg.edit_text("Failed to fetch title details. Please try again.")
             return
 
-        # Format caption based on type
+        # Create data dictionary for additional message
         if title_data.get('Type') == 'series':
+            series_data = {
+                'movie_p': title_data.get('Title', 'N/A'),
+                'year_p': title_data.get('Year', 'N/A'),
+            }
+            additional_message = f"""`[PirecyKings2] [Sseason Eepisode] {series_data['movie_p']} ({series_data['year_p']}) @pirecykings2`
+
+`S01 English - Hindi [480p]`
+
+`S01 English - Hindi [720p]`
+
+`S01 English - Hindi [1080p]`"""
+            
             caption = format_series_caption(
                 title_data.get('Title', 'N/A'),
                 title_data.get('Year', 'N/A'),
                 title_data.get('Language', 'N/A'),
-                title_data.get('Language', 'N/A'),  # Language passed twice intentionally
+                title_data.get('Language', 'N/A'),
                 title_data.get('Genre', 'N/A'),
                 title_data.get('imdbRating', 'N/A'),
                 title_data.get('totalSeasons', 'N/A'),
@@ -463,11 +475,20 @@ async def process_title_selection(callback_query, imdb_id):
                 title_data.get('Plot', 'N/A')
             )
         else:
+            movie_data = {
+                'movie_p': title_data.get('Title', 'N/A'),
+                'year_p': title_data.get('Year', 'N/A'),
+                'audio_p': determine_audio(title_data)
+            }
+            additional_message = f"""`[PirecyKings2] {movie_data['movie_p']} ({movie_data['year_p']}) @pirecykings2`
+
+`{movie_data['movie_p']} ({movie_data['year_p']}) 480p - 1080p [{movie_data['audio_p']}]`"""
+            
             caption = format_caption(
                 title_data.get('Title', 'N/A'),
                 title_data.get('Year', 'N/A'),
                 title_data.get('Language', 'N/A'),
-                title_data.get('Language', 'N/A'),  # Language passed twice intentionally
+                title_data.get('Language', 'N/A'),
                 title_data.get('Genre', 'N/A'),
                 title_data.get('imdbRating', 'N/A'),
                 title_data.get('Runtime', 'N/A'),
@@ -475,7 +496,7 @@ async def process_title_selection(callback_query, imdb_id):
                 title_data.get('Plot', 'N/A')
             )
 
-        # Handle poster
+        # Handle poster and send messages
         poster_url = title_data.get('Poster')
         if poster_url and poster_url != 'N/A':
             try:
@@ -486,23 +507,37 @@ async def process_title_selection(callback_query, imdb_id):
                             poster_stream = BytesIO(poster_data)
                             poster_stream.name = f"poster_{imdb_id}.jpg"
                             
-                            # Send new photo with caption
-                            await callback_query.message.delete()  # Delete loading message
+                            # Delete loading message
+                            await callback_query.message.delete()
+                            
+                            # Send main caption with photo
                             await callback_query.message.reply_photo(
                                 photo=poster_stream,
                                 caption=caption,
                                 parse_mode=ParseMode.MARKDOWN
                             )
+                            
+                            # Send additional message
+                            await callback_query.message.reply_text(
+                                additional_message,
+                                parse_mode=ParseMode.MARKDOWN
+                            )
                             return
             except Exception as poster_error:
                 print(f"Poster download error: {str(poster_error)}")
-                # Continue to text-only fallback if poster fails
         
         # Fallback to text-only if no poster or poster download failed
         await callback_query.message.edit_text(
             caption,
             parse_mode=ParseMode.MARKDOWN
         )
+        
+        # Send additional message even in text-only case
+        await callback_query.message.reply_text(
+            additional_message,
+            parse_mode=ParseMode.MARKDOWN
+        )
+        
     except Exception as e:
         error_msg = f"Title selection error: {str(e)}"
         print(error_msg)
