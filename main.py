@@ -163,6 +163,14 @@ def format_caption(movie, year, audio, language, genre, imdbRating, runTime, rat
     })
     
     try:
+        if rated == "Not Rated":
+            CertificateRating = "U/A"
+        else:
+            CertificateRating = rated
+    except Exception as e:
+        CertificateRating = rated
+        
+    try:
         # Extract the number from the "Runtime" string (e.g., "57 min")
         minutes = int(runTime.split()[0])  # Get the numeric part
         if minutes > 60:
@@ -177,7 +185,6 @@ def format_caption(movie, year, audio, language, genre, imdbRating, runTime, rat
     except (ValueError, IndexError):
         formatted_runtime = runTime  # Use the raw value if parsing fails
     
-    
     caption = f""" {movie}（{year}）
     
 » 𝗔𝘂𝗱𝗶𝗼: {audio}（Esub）
@@ -185,7 +192,7 @@ def format_caption(movie, year, audio, language, genre, imdbRating, runTime, rat
 » 𝗚𝗲𝗻𝗿𝗲: {genre}
 » 𝗜𝗺𝗱𝗯 𝗥𝗮𝘁𝗶𝗻𝗴: {imdbRating}/10
 » 𝗥𝘂𝗻𝘁𝗶𝗺𝗲: {formatted_runtime}
-» 𝗥𝗮𝘁𝗲𝗱: {rated}
+» 𝗥𝗮𝘁𝗲𝗱: {CertificateRating}
 
 » 𝗦𝘆𝗻𝗼𝗽𝘀𝗶𝘀
 > {synopsis}
@@ -221,7 +228,7 @@ def format_series_caption(movie, year, audio, language, genre, imdbRating, total
  ‣ 𝗘𝗽𝗶𝘀𝗼𝗱𝗲𝘀: 𝟬𝟭-𝟬8
  ‣ 𝗜𝗠𝗗𝗯 𝗥𝗮𝘁𝗶𝗻𝗴𝘀: {imdbRating}/10
  ‣ 𝗣𝗶𝘅𝗲𝗹𝘀: 𝟰𝟴𝟬𝗽, 𝟳𝟮𝟬𝗽, 𝟭𝟬𝟴𝟬𝗽
- ‣ 𝗔𝘂𝗱𝗶𝗼:  {audio} हिंदी
+ ‣ 𝗔𝘂𝗱𝗶𝗼:  {audio}
 ├──────────────────────
  ‣ 𝗚𝗲𝗻𝗿𝗲𝘀:{genre}
 ╰──────────────────────
