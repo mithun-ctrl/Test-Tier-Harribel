@@ -162,7 +162,7 @@ def format_caption(movie, year, audio, language, genre, imdbRating, runTime, rat
         "Country": "",  
     }
     
-    audio = determine_audio()
+    audio = determine_audio(movie_details)
     
     try:
         # Extract the number from the "Runtime" string (e.g., "57 min")
