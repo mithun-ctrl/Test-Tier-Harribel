@@ -29,8 +29,8 @@ rapid_host = os.getenv("rapid_host")
 
 YOUR_TMDB_API_KEY = tmdb_api_key
 MONGO_URI = mongo_uri
-DATABASE_NAME = "movie_bot_db"
-GENERATED_MOVIES_COLLECTION = "generated_movies"
+DATABASE_NAME = "test_movie_bot_db"
+GENERATED_MOVIES_COLLECTION = "test_generated_movies"
 
 mongo_client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
 db = mongo_client[DATABASE_NAME]
