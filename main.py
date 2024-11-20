@@ -248,7 +248,7 @@ async def callback_query(client, callback_query: CallbackQuery):
     except Exception as e:
         print(f"Callback query error: {str(e)}")
 
-@espada.on_message(filters.command(["caption"]))
+@espada.on_message(filters.command(["captionM", "cm"]))
 async def caption_command(client, message):
     try:
         # Extract movie name from command
@@ -256,7 +256,7 @@ async def caption_command(client, message):
         if len(parts) < 2:
             await message.reply_text(
                 "Please provide a movie name.\n"
-                "Example: `/caption The Penguin`"
+                "Example: `/caption Kalki 2898 AD -fdb`"
             )
             return
 
@@ -332,7 +332,7 @@ async def caption_command(client, message):
         await status_message.delete()
 
         await logger.log_message(
-            action="Caption Command",
+            action="Movie Command",
             user_id=message.from_user.id,
             username=message.from_user.username,
             chat_id=message.chat.id,
@@ -344,21 +344,21 @@ async def caption_command(client, message):
         print(f"Caption command error: {str(e)}")
 
         await logger.log_message(
-            action="Caption Command Error",
+            action="Movie Command Error",
             user_id=message.from_user.id,
             username=message.from_user.username,
             chat_id=message.chat.id,
             error=e
         )
-@espada.on_message(filters.command(["series"]))
+@espada.on_message(filters.command(["captionS", "cs"]))
 async def series_command(client, message):
     try:
         # Extract movie name from command
         parts = message.text.split()
         if len(parts) < 2:
             await message.reply_text(
-                "Please provide a movie name.\n"
-                "Example: `/caption Kalki 2898 AD`"
+                "Please provide a series name.\n"
+                "Example: `/captionS Game Of Throne -fdb`"
             )
             return
 
@@ -456,7 +456,7 @@ async def series_command(client, message):
             chat_id=message.chat.id,
             error=e
         )
-@espada.on_message(~filters.command(["start", "caption", "series"]) & ~filters.channel & ~filters.group)
+@espada.on_message(~filters.command(["start", "captionM", "cm","captionS", "cs"]) & ~filters.channel & ~filters.group)
 async def default_response(client, message):
     try:
         # Send a default message in response
