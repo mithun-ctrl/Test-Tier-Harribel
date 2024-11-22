@@ -10,6 +10,7 @@ from io import BytesIO
 from plugins.logs import Logger
 from script import START_TEXT, HELP_TEXT, SUPPORT_TEXT, ABOUT_TEXT,MOVIE_TEXT
 import random
+from webhook_handler import WebhookHandler
 
 # Get environment variables
 api_id = int(os.getenv("API_ID"))
@@ -17,13 +18,15 @@ api_hash = os.getenv("API_HASH")
 bot_token = os.getenv("BOT_TOKEN")
 log_channel = int(os.getenv('LOG_CHANNEL'))
 rapidapi_key = os.getenv("RAPID_API")
+PORT = int(os.getenv("PORT", 8000))
 
 if not all([api_id, api_hash, bot_token, rapidapi_key, log_channel]):
-    raise ValueError("Please set the API_ID, API_HASH, BOT_TOKEN, RAPID_API, and LOG_CHANNEL environment variables")
+    raise ValueError("Please set all required environment variables")
 
 # Initialize the bot
 espada = Client("movie_caption_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
 logger = Logger(espada)
+webhook_handler = WebhookHandler(espada, logger)
 
 RAPIDAPI_URL = "https://movie-database-alternative.p.rapidapi.com/"
 RAPIDAPI_HEADERS = {
@@ -565,5 +568,10 @@ async def start_bot():
             await espada.stop()
             
 if __name__ == "__main__":
-    print("Bot is Starting...")
-    espada.run(start_bot())
+    print(f"Starting webhook server on port {PORT}...")
+    uvicorn.run(
+        webhook_handler.app,
+        host="0.0.0.0",
+        port=PORT,
+        workers=4
+    )
