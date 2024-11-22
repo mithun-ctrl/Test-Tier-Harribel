@@ -405,7 +405,7 @@ async def series_command(client, message):
         print(f"Series search error: {str(e)}")
         
         
-@espada.on_message(~filters.command(["start", "captionM", "cm","captionS", "cs"]) & ~filters.channel & ~filters.group)
+@espada.on_message(~filters.command(["start", "captionM", "cm","captionS", "cs", "setautogen", "startautogen"]) & ~filters.channel & ~filters.group)
 async def default_response(client, message):
     try:
         # Send a default message in response
