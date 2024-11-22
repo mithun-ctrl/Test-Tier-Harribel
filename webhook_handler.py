@@ -7,16 +7,12 @@ import secrets
 import os
 from plugins.logs import Logger
 
-
 class WebhookHandler:
-    def __init__(self, bot: Client, logger: Logger, handlers=None):
-        """Initialize webhook handler with bot instance, logger, and optional handlers"""
+    def __init__(self, bot: Client, logger: Logger):
+        """Initialize webhook handler with bot instance and logger"""
         self.app = FastAPI(title="Movie Caption Bot")
         self.bot = bot
         self.logger = logger
-        
-        # Store handler functions
-        self.handlers = handlers or {}
         
         # Configure webhook settings
         self.port = int(os.getenv("PORT", 8000))
@@ -49,14 +45,9 @@ class WebhookHandler:
     async def on_startup(self):
         """Handle startup events"""
         try:
-            await self.bot.start()
-            await self.bot.set_webhook(
-                url=self.webhook_url,
-                drop_pending_updates=True,
-                max_connections=100
-            )
+            # Instead of set_webhook, we'll log the startup
             print(f"Bot started successfully!")
-            print(f"Webhook set to: {self.webhook_url}")
+            print(f"Webhook URL: {self.webhook_url}")
             
             await self.logger.log_message(
                 action="Bot Startup",
@@ -78,15 +69,15 @@ class WebhookHandler:
     async def on_shutdown(self):
         """Handle shutdown events"""
         try:
-            await self.bot.delete_webhook()
-            await self.bot.stop()
-            print("Bot stopped and webhook deleted!")
+            # Remove webhook-specific method calls
+            print("Bot shutdown process initiated")
         except Exception as e:
             print(f"Shutdown error: {str(e)}")
             
     async def handle_webhook(self, request: Request):
         """Process incoming webhook updates"""
         try:
+            # Verify secret token if needed
             if request.headers.get("X-Telegram-Bot-Api-Secret-Token") != self.secret_token:
                 return JSONResponse(status_code=403, content={"error": "Unauthorized"})
             
@@ -118,33 +109,42 @@ class WebhookHandler:
             
     async def handle_message(self, message: Message):
         """Route messages to appropriate handlers"""
+        from main import start_command, caption_command, series_command, default_response
+        
         try:
             if message.command:
                 command = message.command[0].lower()
-                handler = self.handlers.get(command)
-                if handler:
-                    await handler(self.bot, message)
+                if command == "start":              
+                    await start_command(self.bot, message)
+                elif command in ["captionm", "cm"]:
+                    await caption_command(self.bot, message)
+                elif command in ["captions", "cs"]:
+                    await series_command(self.bot, message)
                 else:
-                    handler = self.handlers.get('default')
-                    if handler:
-                        await handler(self.bot, message)
+                    await default_response(self.bot, message)
             else:
-                handler = self.handlers.get('default')
-                if handler:
-                    await handler(self.bot, message)
+                await default_response(self.bot, message)
                 
         except Exception as e:
             print(f"Message handling error: {str(e)}")
+            await message.reply_text("An error occurred while processing your request.")
+            await self.logger.log_message(
+                action="Message Handler Error",
+                user_id=message.from_user.id if message.from_user else 0,
+                username=message.from_user.username if message.from_user else "Unknown",
+                chat_id=message.chat.id,
+                error=str(e)
+            )
             
     async def handle_callback(self, callback_query: CallbackQuery):
         """Route callback queries to appropriate handlers"""
+        from main import process_title_selection, callback_query as handle_menu_callback
+        
         try:
             if callback_query.data.startswith("title_"):
                 imdb_id = callback_query.data.split("_")[1]
-                from main import process_title_selection
                 await process_title_selection(callback_query, imdb_id)
             else:
-                from main import callback_query as handle_menu_callback
                 await handle_menu_callback(self.bot, callback_query)
                 
         except Exception as e:
