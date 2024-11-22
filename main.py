@@ -562,7 +562,7 @@ if __name__ == "__main__":
     webhook_handler = WebhookHandler(espada, logger)
     
     uvicorn.run(
-        webhook_handler.app,
+        "main:webhook_handler.app",  # Use import string format
         host="0.0.0.0",
         port=PORT,
         workers=4
