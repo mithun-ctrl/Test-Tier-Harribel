@@ -15,8 +15,8 @@ class WebhookHandler:
         self.logger = logger
         
         # Configure webhook settings
-        self.port = int(os.getenv("PORT", 8000))
-        self.railway_url = os.getenv("RAILWAY_APP_URL")
+        self.port = int(os.getenv("PORT", 8000))  # Ensure PORT is set in environment
+        self.railway_url = "https://captionbot.up.railway.app"
         self.secret_token = secrets.token_hex(32)
         self.webhook_path = f"/webhook/{self.secret_token}"
         self.webhook_url = f"{self.railway_url}{self.webhook_path}"
@@ -53,7 +53,7 @@ class WebhookHandler:
                 action="Bot Startup",
                 user_id=0,
                 username="System",
-                chat_id=int(os.getenv('LOG_CHANNEL')),
+                chat_id=int(os.getenv('LOG_CHANNEL', 0)),  # Ensure LOG_CHANNEL is set
                 error="Bot started with webhook configuration"
             )
         except Exception as e:
@@ -62,7 +62,7 @@ class WebhookHandler:
                 action="Startup Error",
                 user_id=0,
                 username="System",
-                chat_id=int(os.getenv('LOG_CHANNEL')),
+                chat_id=int(os.getenv('LOG_CHANNEL', 0)),
                 error=str(e)
             )
             
@@ -99,7 +99,7 @@ class WebhookHandler:
                 action="Webhook Error",
                 user_id=0,
                 username="System",
-                chat_id=int(os.getenv('LOG_CHANNEL')),
+                chat_id=int(os.getenv('LOG_CHANNEL', 0)),
                 error=str(e)
             )
             return JSONResponse(
