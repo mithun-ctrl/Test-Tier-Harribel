@@ -54,7 +54,7 @@ class WebhookHandler:
                 user_id=0,
                 username="System",
                 chat_id=int(os.getenv('LOG_CHANNEL')),
-                message="Bot started with webhook configuration"
+                error="Bot started with webhook configuration"
             )
         except Exception as e:
             print(f"Startup error: {str(e)}")
