@@ -1,28 +1,17 @@
-from dotenv import load_dotenv
-load_dotenv()
-from pyrogram import Client, filters, utils
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery,InputMediaPhoto
+from pyrogram import filters
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery,InputMediaPhoto
 from pyrogram.enums import ParseMode
-import os
 import asyncio
 import aiohttp
 from io import BytesIO
 from plugins.logs import Logger
 from script import START_TEXT, HELP_TEXT, SUPPORT_TEXT, ABOUT_TEXT,MOVIE_TEXT
 import random
-
-# Get environment variables
-api_id = int(os.getenv("API_ID"))
-api_hash = os.getenv("API_HASH")
-bot_token = os.getenv("BOT_TOKEN")
-log_channel = int(os.getenv('LOG_CHANNEL'))
-rapidapi_key = os.getenv("RAPID_API")
+from config import espada, api_hash, api_id, bot_token, rapidapi_key, log_channel
 
 if not all([api_id, api_hash, bot_token, rapidapi_key, log_channel]):
-    raise ValueError("Please set the API_ID, API_HASH, BOT_TOKEN, RAPID_API, and LOG_CHANNEL environment variables")
+    raise ValueError("Please set environment variables correctly")
 
-# Initialize the bot
-espada = Client("movie_caption_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
 logger = Logger(espada)
 
 RAPIDAPI_URL = "https://movie-database-alternative.p.rapidapi.com/"
