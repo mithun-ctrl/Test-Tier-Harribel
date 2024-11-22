@@ -1,5 +1,4 @@
 from dotenv import load_dotenv
-from bot_config import espada, PORT, rapidapi_key
 load_dotenv()
 from pyrogram import Client, filters, utils
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery,InputMediaPhoto
@@ -7,17 +6,24 @@ from pyrogram.enums import ParseMode
 import os
 import asyncio
 import aiohttp
-import uvicorn
 from io import BytesIO
 from plugins.logs import Logger
 from script import START_TEXT, HELP_TEXT, SUPPORT_TEXT, ABOUT_TEXT,MOVIE_TEXT
 import random
-from webhook_handler import WebhookHandler
 
+# Get environment variables
+api_id = int(os.getenv("API_ID"))
+api_hash = os.getenv("API_HASH")
+bot_token = os.getenv("BOT_TOKEN")
+log_channel = int(os.getenv('LOG_CHANNEL'))
+rapidapi_key = os.getenv("RAPID_API")
 
+if not all([api_id, api_hash, bot_token, rapidapi_key, log_channel]):
+    raise ValueError("Please set the API_ID, API_HASH, BOT_TOKEN, RAPID_API, and LOG_CHANNEL environment variables")
+
+# Initialize the bot
+espada = Client("movie_caption_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
 logger = Logger(espada)
-webhook_handler = WebhookHandler(espada, logger)
-app = webhook_handler.app
 
 RAPIDAPI_URL = "https://movie-database-alternative.p.rapidapi.com/"
 RAPIDAPI_HEADERS = {
@@ -546,6 +552,7 @@ async def start_bot():
         print("Bot Started Successfully!")
 
         while True:
+            # Check if the client is still connected every 10 seconds
             if not espada.is_connected:
                 await espada.reconnect()
             await asyncio.sleep(10)
@@ -554,15 +561,9 @@ async def start_bot():
         print(f"Bot Crashed: {str(e)}")
         await logger.log_bot_crash(e)
     finally:
-        if espada.is_connected:
+        if espada.is_connected:  # Check if client is still connected before stopping
             await espada.stop()
             
 if __name__ == "__main__":
-    print(f"Starting webhook server on port {PORT}...")
-    
-    uvicorn.run(
-        "main:app",  # Now correctly references the exported app
-        host="0.0.0.0",
-        port=PORT,
-        workers=4
-    )
+    print("Bot is Starting...")
+    espada.run(start_bot())
