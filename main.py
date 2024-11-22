@@ -70,7 +70,7 @@ def create_search_results_keyboard(results):
         text = f"{item['Title']} ({item['Year']})"
         callback_data = f"title_{item['imdbID']}"
         buttons.append([InlineKeyboardButton(text, callback_data=callback_data)])
-    buttons.append([InlineKeyboardButton("🔙 Back", callback_data="home")])
+    buttons.append([InlineKeyboardButton("❌ Cancel", callback_data="cancel_search")])
     return InlineKeyboardMarkup(buttons)
 
 async def download_image(url):
@@ -300,6 +300,9 @@ async def callback_query(client, callback_query: CallbackQuery):
             # Handle title selection
             imdb_id = callback_query.data.split("_")[1]
             await process_title_selection(callback_query, imdb_id)
+        
+        elif callback_query.data == "cancel_search":
+            await callback_query.message.delete()
             
         elif callback_query.data == "home":
             await callback_query.message.edit_caption(
