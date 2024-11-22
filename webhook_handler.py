@@ -17,7 +17,7 @@ class WebhookHandler:
         # Configure webhook settings
         self.port = int(os.getenv("PORT", 8000))  # Ensure PORT is set in environment
         self.railway_url = "https://captionbot.up.railway.app"
-        self.secret_token = secrets.token_hex(32)
+        self.secret_token = "b9e22537af1d9b9687541b850d68a2413f2c45af708b7ab3ff53d7380375ca23"
         self.webhook_path = f"/webhook/{self.secret_token}"
         self.webhook_url = f"{self.railway_url}{self.webhook_path}"
         
