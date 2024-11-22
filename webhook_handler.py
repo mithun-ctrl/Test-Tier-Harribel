@@ -6,15 +6,17 @@ import json
 import secrets
 import os
 from plugins.logs import Logger
-from main import start_command, caption_command, series_command, default_response, process_title_selection
-from main import callback_query as handle_menu_callback
+
 
 class WebhookHandler:
-    def __init__(self, bot: Client, logger: Logger):
-        """Initialize webhook handler with bot instance and logger"""
+    def __init__(self, bot: Client, logger: Logger, handlers=None):
+        """Initialize webhook handler with bot instance, logger, and optional handlers"""
         self.app = FastAPI(title="Movie Caption Bot")
         self.bot = bot
         self.logger = logger
+        
+        # Store handler functions
+        self.handlers = handlers or {}
         
         # Configure webhook settings
         self.port = int(os.getenv("PORT", 8000))
@@ -119,35 +121,30 @@ class WebhookHandler:
         try:
             if message.command:
                 command = message.command[0].lower()
-                if command == "start":              
-                    await start_command(self.bot, message)
-                elif command in ["captionm", "cm"]:
-                    await caption_command(self.bot, message)
-                elif command in ["captions", "cs"]:
-                    await series_command(self.bot, message)
+                handler = self.handlers.get(command)
+                if handler:
+                    await handler(self.bot, message)
                 else:
-                    await default_response(self.bot, message)
+                    handler = self.handlers.get('default')
+                    if handler:
+                        await handler(self.bot, message)
             else:
-                await default_response(self.bot, message)
+                handler = self.handlers.get('default')
+                if handler:
+                    await handler(self.bot, message)
                 
         except Exception as e:
             print(f"Message handling error: {str(e)}")
-            await message.reply_text("An error occurred while processing your request.")
-            await self.logger.log_message(
-                action="Message Handler Error",
-                user_id=message.from_user.id if message.from_user else 0,
-                username=message.from_user.username if message.from_user else "Unknown",
-                chat_id=message.chat.id,
-                error=str(e)
-            )
             
     async def handle_callback(self, callback_query: CallbackQuery):
         """Route callback queries to appropriate handlers"""
         try:
             if callback_query.data.startswith("title_"):
                 imdb_id = callback_query.data.split("_")[1]
+                from main import process_title_selection
                 await process_title_selection(callback_query, imdb_id)
             else:
+                from main import callback_query as handle_menu_callback
                 await handle_menu_callback(self.bot, callback_query)
                 
         except Exception as e:
