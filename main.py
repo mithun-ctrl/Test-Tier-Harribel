@@ -12,9 +12,12 @@ from io import BytesIO
 from plugins.logs import Logger
 from script import START_TEXT, HELP_TEXT, SUPPORT_TEXT, ABOUT_TEXT,MOVIE_TEXT
 import random
+from webhook_handler import WebhookHandler
 
 
 logger = Logger(espada)
+webhook_handler = WebhookHandler(espada, logger)
+app = webhook_handler.app
 
 RAPIDAPI_URL = "https://movie-database-alternative.p.rapidapi.com/"
 RAPIDAPI_HEADERS = {
@@ -555,14 +558,10 @@ async def start_bot():
             await espada.stop()
             
 if __name__ == "__main__":
-    from webhook_handler import WebhookHandler
-    
     print(f"Starting webhook server on port {PORT}...")
-    logger = Logger(espada)
-    webhook_handler = WebhookHandler(espada, logger)
     
     uvicorn.run(
-        "main:webhook_handler.app",  # Use import string format
+        "main:app",  # Now correctly references the exported app
         host="0.0.0.0",
         port=PORT,
         workers=4
