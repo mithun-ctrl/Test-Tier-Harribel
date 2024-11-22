@@ -4,7 +4,9 @@ from pyrogram.types import Message
 from typing import Dict, Optional
 import aiohttp
 from io import BytesIO
-from config import TARGET_CHANNEL_ID
+from config import target_channel
+
+TARGET_CHANNEL_ID = target_channel
 
 class MovieAutoGenerator:
     def __init__(self, client: Client, search_titles_func, get_title_details_func, format_caption_func):
