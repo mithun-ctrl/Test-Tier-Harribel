@@ -8,8 +8,6 @@ from plugins.logs import Logger
 from script import START_TEXT, HELP_TEXT, SUPPORT_TEXT, ABOUT_TEXT,MOVIE_TEXT
 import random
 from config import espada, api_hash, api_id, bot_token, rapidapi_key, log_channel
-from auto_movie_series_generator import MovieAutoGenerator, SeriesAutoGenerator
-
 
 if not all([api_id, api_hash, bot_token, rapidapi_key, log_channel]):
     raise ValueError("Please set environment variables correctly")
@@ -405,7 +403,7 @@ async def series_command(client, message):
         print(f"Series search error: {str(e)}")
         
         
-@espada.on_message(~filters.command(["start", "captionM", "cm","captionS", "cs", "setautogen", "startautogen"]) & ~filters.channel & ~filters.group)
+@espada.on_message(~filters.command(["start", "captionM", "cm","captionS", "cs"]) & ~filters.channel & ~filters.group)
 async def default_response(client, message):
     try:
         # Send a default message in response
@@ -541,24 +539,6 @@ async def start_bot():
         await espada.start()
         await logger.log_bot_start()
         print("Bot Started Successfully!")
-
-        # Create and register auto movie generator
-        auto_movie_generator = MovieAutoGenerator(
-            client=espada, 
-            search_titles_func=search_titles, 
-            get_title_details_func=get_title_details, 
-            format_caption_func=format_caption
-        )
-        auto_movie_generator.register_handlers()
-
-        # Create and register auto series generator
-        auto_series_generator = SeriesAutoGenerator(
-            client=espada, 
-            search_titles_func=search_titles, 
-            get_title_details_func=get_title_details, 
-            format_series_caption_func=format_series_caption
-        )
-        auto_series_generator.register_handlers()
 
         while True:
             # Check if the client is still connected every 10 seconds
