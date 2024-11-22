@@ -305,40 +305,71 @@ async def callback_query(client, callback_query: CallbackQuery):
             await callback_query.message.delete()
             
         elif callback_query.data == "home":
-            await callback_query.message.edit_caption(
-                caption=START_TEXT,
-                reply_markup=start_keyboard,
-                parse_mode=ParseMode.MARKDOWN
-            )
+            # Check if the current caption is different from START_TEXT
+            current_caption = callback_query.message.caption or callback_query.message.text
+            if current_caption != START_TEXT:
+                await callback_query.message.edit_caption(
+                    caption=START_TEXT,
+                    reply_markup=start_keyboard,
+                    parse_mode=ParseMode.MARKDOWN
+                )
+            else:
+                # If already on home, just acknowledge the callback query
+                await callback_query.answer("Already on Home screen")
+        
         elif callback_query.data == "about":
-            await callback_query.message.edit_caption(
-                caption = ABOUT_TEXT,
-                reply_markup = start_keyboard,
-                parse_mode = ParseMode.HTML
-            )
+            # Similar approach for other buttons
+            current_caption = callback_query.message.caption or callback_query.message.text
+            if current_caption != ABOUT_TEXT:
+                await callback_query.message.edit_caption(
+                    caption=ABOUT_TEXT,
+                    reply_markup=start_keyboard,
+                    parse_mode=ParseMode.HTML
+                )
+            else:
+                await callback_query.answer("Already on About screen")
         
         elif callback_query.data == "help":
-            await callback_query.message.edit_caption(
-                caption=HELP_TEXT,
-                reply_markup=start_keyboard,
-                parse_mode=ParseMode.MARKDOWN
-            )
+            current_caption = callback_query.message.caption or callback_query.message.text
+            if current_caption != HELP_TEXT:
+                await callback_query.message.edit_caption(
+                    caption=HELP_TEXT,
+                    reply_markup=start_keyboard,
+                    parse_mode=ParseMode.MARKDOWN
+                )
+            else:
+                await callback_query.answer("Already on Help screen")
         
         elif callback_query.data == "support":
-            await callback_query.message.edit_caption(
-                caption=SUPPORT_TEXT,
-                reply_markup=start_keyboard,
-                parse_mode=ParseMode.HTML
-            )
+            current_caption = callback_query.message.caption or callback_query.message.text
+            if current_caption != SUPPORT_TEXT:
+                await callback_query.message.edit_caption(
+                    caption=SUPPORT_TEXT,
+                    reply_markup=start_keyboard,
+                    parse_mode=ParseMode.HTML
+                )
+            else:
+                await callback_query.answer("Already on Support screen")
+        
         elif callback_query.data == "movie":
-            await callback_query.message.edit_caption(
-                 caption=MOVIE_TEXT,
-                 reply_markup=start_keyboard,
-                 parse_mode=ParseMode.HTML
-            )
+            current_caption = callback_query.message.caption or callback_query.message.text
+            if current_caption != MOVIE_TEXT:
+                await callback_query.message.edit_caption(
+                    caption=MOVIE_TEXT,
+                    reply_markup=start_keyboard,
+                    parse_mode=ParseMode.HTML
+                )
+            else:
+                await callback_query.answer("Already on Movie screen")
+        
         await callback_query.answer()
+    
     except Exception as e:
         print(f"Callback query error: {str(e)}")
+        try:
+            await callback_query.answer("An error occurred. Please try again.")
+        except:
+            pass
 
 @espada.on_message(filters.command(["captionM", "cm"]))
 async def caption_command(client, message):
