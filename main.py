@@ -6,6 +6,7 @@ from pyrogram.enums import ParseMode
 import os
 import asyncio
 import aiohttp
+import uvicorn
 from io import BytesIO
 from plugins.logs import Logger
 from script import START_TEXT, HELP_TEXT, SUPPORT_TEXT, ABOUT_TEXT,MOVIE_TEXT
