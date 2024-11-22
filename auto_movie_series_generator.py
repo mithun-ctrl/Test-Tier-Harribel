@@ -174,25 +174,6 @@ class MovieAutoGenerator:
         """
         Register command handlers for the client
         """
-        
-        @self.client.on_message(filters.command(["startautogen"]))
-        async def handle_start_auto_gen(client, message):
-            """
-            Start auto movie generation if conditions are set
-            """
-            if not self.current_condition:
-                await message.reply_text("Please set auto generation conditions first using /setautogen")
-                return
-
-            if self.is_running:
-                await message.reply_text("Auto movie generation is already running.")
-                return
-
-            # Start generation task
-            self.generation_task = asyncio.create_task(self.start_movie_post_generation())
-            await message.reply_text("Auto movie generation started.")
-        
-        
         @self.client.on_message(filters.command(["setautogen"]))
         async def handle_set_auto_gen(client, message):
             """
@@ -228,7 +209,23 @@ class MovieAutoGenerator:
             
             except Exception as e:
                 await message.reply_text(f"Error in auto generation: {str(e)}")
-        
+        @self.client.on_message(filters.command(["startautogen"]))
+        async def handle_start_auto_gen(client, message):
+            """
+            Start auto movie generation if conditions are set
+            """
+            if not self.current_condition:
+                await message.reply_text("Please set auto generation conditions first using /setautogen")
+                return
+
+            if self.is_running:
+                await message.reply_text("Auto movie generation is already running.")
+                return
+
+            # Start generation task
+            self.generation_task = asyncio.create_task(self.start_movie_post_generation())
+            await message.reply_text("Auto movie generation started.")
+
         @self.client.on_message(filters.command(["statautogen"]))
         async def handle_stat_auto_gen(client, message):
             """
