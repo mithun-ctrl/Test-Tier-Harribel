@@ -7,12 +7,13 @@ from io import BytesIO
 from plugins.logs import Logger
 from script import START_TEXT, HELP_TEXT, SUPPORT_TEXT, ABOUT_TEXT,MOVIE_TEXT
 import random
-from config import espada, api_hash, api_id, bot_token, log_channel, api_token
+from config import espada, api_hash, api_id, bot_token, log_channel, api_token, omdb_api
 
-if not all([api_id, api_hash, bot_token, log_channel, api_token, api_token]):
+if not all([api_id, api_hash, bot_token, log_channel, api_token, api_token, omdb_api]):
     raise ValueError("Please set environment variables correctly")
 
 logger = Logger(espada)
+OMDB_API_KEY= omdb_api
 
 TMDB_BASE_URL = "https://api.themoviedb.org/3"
 TMDB_API_KEY = api_token
@@ -46,6 +47,18 @@ async def get_tmdb_data(endpoint, params=None):
         print(f"TMDB API error: {str(e)}")
         return None
 
+async def get_imdb_rating(imdb_id):
+    try:
+        url = f"http://www.omdbapi.com/?i={imdb_id}&apikey={OMDB_API_KEY}"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return data.get('imdbRating', 'N/A')
+    except Exception as e:
+        print(f"Error fetching IMDb rating: {str(e)}")
+        return 'N/A'
+
 async def search_titles(query, media_type="movie", page=1):
     """Search for movies/TV shows using TMDB API"""
     params = {
@@ -68,9 +81,14 @@ async def get_title_details(tmdb_id, media_type="movie"):
     endpoint = f"{media_type}/{tmdb_id}"
     params = {
         "language": "en-US",
-        "append_to_response": "credits,videos,images"
+        "append_to_response": "credits,videos,images, external_ids"
     }
-    return await get_tmdb_data(endpoint, params)
+    data = await get_tmdb_data(endpoint, params)
+    if data and data.get('external_ids', {}).get('imdb_id'):
+        imdb_rating = await get_imdb_rating(data['external_ids']['imdb_id'])
+        if imdb_rating:
+            data['imdb_rating'] = imdb_rating         
+    return data
 
 async def get_similar_titles(tmdb_id, media_type="movie"):
     """Get similar movies/TV shows"""
@@ -166,7 +184,7 @@ def determine_audio(movie_details):
     """
     
     audio_options = [
-        'English',
+        'Hindi-English',
         'Hindi',
         'Multi-Audio',
         'Hindi Dubbed',
@@ -181,7 +199,7 @@ def determine_audio(movie_details):
     
     # Check for Hindi content
     if 'india' in country or 'hindi' in language:
-        return 'Hindi-Telugu'
+        return 'Hindi'
     
     if 'hindi' in actors or 'hindi' in plot:
         return 'Hindi'
@@ -204,7 +222,7 @@ def determine_audio(movie_details):
     weights = [0.3, 0.2, 0.3, 0.1, 0.1]
     return random.choices(audio_options, weights=weights)[0]
 
-def format_caption(movie, year, audio, language, genre, imdbRating, runTime, rated, synopsis):
+def format_caption(movie, year, audio, language, genre, imdb_rating, runTime, rated, synopsis):
     """Format the caption with Markdown"""
     
     
@@ -244,7 +262,7 @@ def format_caption(movie, year, audio, language, genre, imdbRating, runTime, rat
 » 𝗔𝘂𝗱𝗶𝗼: {audio}（Esub）
 » 𝗤𝘂𝗮𝗹𝗶𝘁𝘆: 480p | 720p | 1080p |
 » 𝗚𝗲𝗻𝗿𝗲: {genre}
-» 𝗜𝗺𝗱𝗯 𝗥𝗮𝘁𝗶𝗻𝗴: {imdbRating}/10
+» 𝗜𝗺𝗱𝗯 𝗥𝗮𝘁𝗶𝗻𝗴: {imdb_rating}/10
 » 𝗥𝘂𝗻𝘁𝗶𝗺𝗲: {formatted_runtime}
 » 𝗥𝗮𝘁𝗲𝗱: {CertificateRating}
 
@@ -255,7 +273,7 @@ def format_caption(movie, year, audio, language, genre, imdbRating, runTime, rat
 >[𝗜𝗳 𝗬𝗼𝘂 𝗦𝗵𝗮𝗿𝗲 𝗢𝘂𝗿 𝗙𝗶𝗹𝗲𝘀 𝗪𝗶𝘁𝗵𝗼𝘂𝘁 𝗖𝗿𝗲𝗱𝗶𝘁, 𝗧𝗵𝗲𝗻 𝗬𝗼𝘂 𝗪𝗶𝗹𝗹 𝗯𝗲 𝗕𝗮𝗻𝗻𝗲𝗱]"""
     return caption
 
-def format_series_caption(movie, year, audio, language, genre, imdbRating, totalSeason, type, synopsis):
+def format_series_caption(movie, year, audio, language, genre, imdb_rating, runTime, totalSeason, type, synopsis):
     """Format the caption with Markdown"""
     
     audio = determine_audio({
@@ -273,6 +291,23 @@ def format_series_caption(movie, year, audio, language, genre, imdbRating, total
             season_count += f"\n│S{season}) [𝟺𝟾𝟶ᴘ]  [𝟽𝟸𝟶ᴘ]  [𝟷𝟶𝟾𝟶ᴘ]\n"
     except ValueError:
         season_count = "N/A"
+    
+    # calcate runtime    
+        
+    try:
+        # Extract the number from the "Runtime" string (e.g., "57 min")
+        minutes = int(runTime.split()[0])  # Get the numeric part
+        if minutes > 60:
+            hours = minutes // 60
+            remaining_minutes = minutes % 60
+            formatted_runtime = f"{hours}h {remaining_minutes}min"
+        elif minutes==60:
+            hours = minutes // 60
+            formatted_runtime = f"{hours}h"
+        else:
+            formatted_runtime = runTime
+    except (ValueError, IndexError):
+        formatted_runtime = runTime  # Use the raw value if parsing fails
         
     
     caption = f""" {movie} ({year})
@@ -280,9 +315,10 @@ def format_series_caption(movie, year, audio, language, genre, imdbRating, total
  ‣ 𝗧𝘆𝗽𝗲: {type.capitalize()}
  ‣ 𝗦𝗲𝗮𝘀𝗼𝗻: {totalSeason}
  ‣ 𝗘𝗽𝗶𝘀𝗼𝗱𝗲𝘀: 𝟬𝟭-𝟬8
- ‣ 𝗜𝗠𝗗𝗯 𝗥𝗮𝘁𝗶𝗻𝗴𝘀: {imdbRating}/10
+ ‣ 𝗜𝗠𝗗𝗯 𝗥𝗮𝘁𝗶𝗻𝗴𝘀: {imdb_rating}/10
  ‣ 𝗣𝗶𝘅𝗲𝗹𝘀: 𝟰𝟴𝟬𝗽, 𝟳𝟮𝟬𝗽, 𝟭𝟬𝟴𝟬𝗽
  ‣ 𝗔𝘂𝗱𝗶𝗼:  {audio}
+ ‣ 𝗥𝘂𝗻𝘁𝗶𝗺𝗲: {formatted_runtime}
 ├──────────────────────
  ‣ 𝗚𝗲𝗻𝗿𝗲𝘀:{genre}
 ╰──────────────────────
@@ -698,6 +734,9 @@ async def process_title_selection(callback_query, tmdb_id, media_type="movie"):
             await loading_msg.edit_text("Failed to fetch title details. Please try again.")
             return
 
+        imdb_rating = title_data.get('imdb_rating', 'N/A')
+        
+        
         # Create data dictionary for additional message
         if media_type == "tv":
             series_data = {
@@ -718,7 +757,7 @@ async def process_title_selection(callback_query, tmdb_id, media_type="movie"):
                 'Multi',
                 title_data.get('original_language', 'N/A'),
                 ', '.join([genre['name'] for genre in title_data.get('genres', [])]),
-                str(round(title_data.get('vote_average', 0), 1)),
+                imdb_rating,
                 title_data.get('number_of_seasons', 'N/A'),
                 'TV Series',
                 title_data.get('overview', 'N/A')
@@ -739,7 +778,7 @@ async def process_title_selection(callback_query, tmdb_id, media_type="movie"):
                 'Multi',
                 title_data.get('original_language', 'N/A'),
                 ', '.join([genre['name'] for genre in title_data.get('genres', [])]),
-                str(round(title_data.get('vote_average', 0), 1)),
+                imdb_rating,
                 str(title_data.get('runtime', 'N/A')) + ' min',
                 title_data.get('adult', False) and 'A' or 'U/A',
                 title_data.get('overview', 'N/A')
@@ -782,8 +821,8 @@ async def process_title_selection(callback_query, tmdb_id, media_type="movie"):
             for title in similar_titles:
                 name = title.get('title') or title.get('name')
                 year = (title.get('release_date') or title.get('first_air_date', ''))[:4]
-                rating = round(title.get('vote_average', 0), 1)
-                suggestion_text += f"• {name} ({year}) - ⭐ {rating}/10\n"
+                similar_rating = title.get('imdb_rating', 'N/A')
+                suggestion_text += f"• {name} ({year}) - ⭐ {similar_rating}/10\n"
 
             await callback_query.message.reply_text(suggestion_text)
 
