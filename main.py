@@ -22,7 +22,6 @@ TMDB_HEADERS = {
     "Authorization": f"Bearer {TMDB_API_KEY}"
 }
 
-# Define keyboard layouts
 start_keyboard = InlineKeyboardMarkup([
     [InlineKeyboardButton("🏠 Home", callback_data="home"),
      InlineKeyboardButton("🤖 About", callback_data="about")],
@@ -32,6 +31,26 @@ start_keyboard = InlineKeyboardMarkup([
      InlineKeyboardButton("🙅‍♂️ Close", callback_data="close")
      ]
 ])
+
+async def get_imdb_rating(imdb_id):
+    """
+    Fetch IMDb rating using OMDB API
+    """
+    try:
+        if not imdb_id:
+            return 'N/A'
+            
+        url = f"http://www.omdbapi.com/?i={imdb_id}&apikey={OMDB_API_KEY}"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    rating = data.get('imdbRating')
+                    return rating if rating and rating != 'N/A' else '0'
+                return '0'
+    except Exception as e:
+        print(f"Error fetching IMDb rating: {str(e)}")
+        return '0'
 
 async def get_tmdb_data(endpoint, params=None):
     """Generic function to fetch data from TMDB API"""
@@ -70,29 +89,29 @@ async def search_titles(query, media_type="movie", page=1):
 
 async def get_title_details(tmdb_id, media_type="movie"):
     """Get detailed information for a specific title"""
-    endpoint = f"{media_type}/{tmdb_id}"
-    params = {
-        "language": "en-US",
-        "append_to_response": "credits,videos,images, external_ids"
-    }
-    data = await get_tmdb_data(endpoint, params)
-    if data and data.get('external_ids', {}).get('imdb_id'):
-        imdb_rating = await get_imdb_rating(data['external_ids']['imdb_id'])
-        if imdb_rating:
-            data['imdb_rating'] = imdb_rating         
-    return data
-
-async def get_imdb_rating(imdb_id):
     try:
-        url = f"http://www.omdbapi.com/?i={imdb_id}&apikey={OMDB_API_KEY}"
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    return data.get('imdbRating', 'N/A')
+        endpoint = f"{media_type}/{tmdb_id}"
+        params = {
+            "language": "en-US",
+            "append_to_response": "credits,videos,images,external_ids"
+        }
+        
+        data = await get_tmdb_data(endpoint, params)
+        
+        if data:
+            # Get IMDb ID from external_ids
+            imdb_id = data.get('external_ids', {}).get('imdb_id')
+            if imdb_id:
+                # Fetch and add IMDb rating
+                imdb_rating = await get_imdb_rating(imdb_id)
+                data['imdb_rating'] = imdb_rating
+            else:
+                data['imdb_rating'] = '0'
+                
+        return data
     except Exception as e:
-        print(f"Error fetching IMDb rating: {str(e)}")
-        return 'N/A'
+        print(f"Error getting title details: {str(e)}")
+        return None
 
 async def get_similar_titles(tmdb_id, media_type="movie"):
     """Get similar movies/TV shows"""
