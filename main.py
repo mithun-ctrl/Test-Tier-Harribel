@@ -14,62 +14,108 @@ if not all([api_id, api_hash, bot_token, rapidapi_key, log_channel]):
 
 logger = Logger(espada)
 
-RAPIDAPI_URL = "https://movie-database-alternative.p.rapidapi.com/"
-RAPIDAPI_HEADERS = {
-    "x-rapidapi-key": rapidapi_key,
-    "x-rapidapi-host": "movie-database-alternative.p.rapidapi.com"
+TMDB_BASE_URL = "https://api.themoviedb.org/3"
+TMDB_HEADERS = {
+    "accept": "application/json",
+    "Authorization": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiIwYTY5ZjkzMTgwYjQ3MTgzOWM5ZjY4OTY2OTBhYWU2ZSIsIm5iZiI6MTczMjMzNzMzOS45Mjc2ODg2LCJzdWIiOiI2NzMwOGE1MDNkMWIxOWJmM2RiYzUzYWYiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.lW695xTa0E2Dg4bEKOIyTc1-hjgMyGVZfPweM5aEG9U"
 }
 
 # Define keyboard layouts
 start_keyboard = InlineKeyboardMarkup([
     [InlineKeyboardButton("🏠 Home", callback_data="home"),
-     InlineKeyboardButton("🤖 About", callback_data="about")
-     ],
+     InlineKeyboardButton("🤖 About", callback_data="about")],
     [InlineKeyboardButton("💬 Support", callback_data="support"),
      InlineKeyboardButton("ℹ️ Help", callback_data="help")],
-    [InlineKeyboardButton("🍿 Movie-Anime", callback_data="movie")]
-    
+    [InlineKeyboardButton("🎬 Trending", callback_data="trending"),
+     InlineKeyboardButton("📺 Popular", callback_data="popular")],
+    [InlineKeyboardButton("🆕 Upcoming", callback_data="upcoming"),
+     InlineKeyboardButton("🔍 Search", callback_data="search")]
 ])
 
-async def search_titles(query, search_type="movie"):
-    """Search for movies/series using the Movie Database Alternative API"""
+async def get_tmdb_data(endpoint, params=None):
+    """Generic function to fetch data from TMDB API"""
     try:
-        params = {
-            "s": query,
-            "r": "json",
-            "type": search_type
-        }
-        
+        url = f"{TMDB_BASE_URL}/{endpoint}"
         async with aiohttp.ClientSession() as session:
-            async with session.get(RAPIDAPI_URL, headers=RAPIDAPI_HEADERS, params=params) as response:
-                data = await response.json()
-                return data.get('Search', []) if data.get('Response') == 'True' else []
-    except Exception as e:
-        print(f"Search error: {str(e)}")
-        return []
-
-async def get_title_details(imdb_id):
-    """Get detailed information for a specific title using its IMDb ID"""
-    try:
-        params = {
-            "r": "json",
-            "i": imdb_id
-        }
-        
-        async with aiohttp.ClientSession() as session:
-            async with session.get(RAPIDAPI_URL, headers=RAPIDAPI_HEADERS, params=params) as response:
+            async with session.get(url, headers=TMDB_HEADERS, params=params) as response:
                 return await response.json()
     except Exception as e:
-        print(f"Details fetch error: {str(e)}")
+        print(f"TMDB API error: {str(e)}")
         return None
 
-def create_search_results_keyboard(results):
+async def search_titles(query, media_type="movie", page=1):
+    """Search for movies/TV shows using TMDB API"""
+    params = {
+        "query": query,
+        "include_adult": "false",
+        "language": "en-US",
+        "page": page
+    }
+    
+    if media_type == "movie":
+        endpoint = "search/movie"
+    else:
+        endpoint = "search/tv"
+        
+    data = await get_tmdb_data(endpoint, params)
+    return data.get('results', []) if data else []
+
+async def get_title_details(tmdb_id, media_type="movie"):
+    """Get detailed information for a specific title"""
+    endpoint = f"{media_type}/{tmdb_id}"
+    params = {
+        "language": "en-US",
+        "append_to_response": "credits,videos,images"
+    }
+    return await get_tmdb_data(endpoint, params)
+
+async def get_trending_content(media_type="all", time_window="week", page=1):
+    """Get trending movies/TV shows"""
+    endpoint = f"trending/{media_type}/{time_window}"
+    params = {"page": page}
+    return await get_tmdb_data(endpoint, params)
+
+async def get_popular_content(media_type="movie", page=1):
+    """Get popular movies/TV shows"""
+    endpoint = f"{media_type}/popular"
+    params = {"page": page}
+    return await get_tmdb_data(endpoint, params)
+
+async def get_upcoming_content(page=1):
+    """Get upcoming movies"""
+    endpoint = "movie/upcoming"
+    params = {"page": page}
+    return await get_tmdb_data(endpoint, params)
+
+def create_pagination_keyboard(current_page, total_pages, base_callback):
+    """Create pagination keyboard"""
+    buttons = []
+    if current_page > 1:
+        buttons.append(InlineKeyboardButton("⬅️ Previous", callback_data=f"{base_callback}_page_{current_page-1}"))
+    if current_page < total_pages:
+        buttons.append(InlineKeyboardButton("Next ➡️", callback_data=f"{base_callback}_page_{current_page+1}"))
+    buttons.append(InlineKeyboardButton("🏠 Home", callback_data="home"))
+    return InlineKeyboardMarkup([buttons])
+
+def create_search_results_keyboard(results, page=1, total_pages=1):
     """Create inline keyboard from search results"""
     buttons = []
     for item in results:
-        text = f"{item['Title']} ({item['Year']})"
-        callback_data = f"title_{item['imdbID']}"
+        title = item.get('title') or item.get('name')
+        release_date = item.get('release_date') or item.get('first_air_date', '')
+        year = release_date[:4] if release_date else 'N/A'
+        text = f"{title} ({year})"
+        callback_data = f"title_{item['id']}_{item.get('media_type', 'movie')}"
         buttons.append([InlineKeyboardButton(text, callback_data=callback_data)])
+    
+    # Add pagination buttons
+    pagination = []
+    if page > 1:
+        pagination.append(InlineKeyboardButton("⬅️ Previous", callback_data=f"search_page_{page-1}"))
+    if page < total_pages:
+        pagination.append(InlineKeyboardButton("Next ➡️", callback_data=f"search_page_{page+1}"))
+    
+    buttons.append(pagination)
     buttons.append([InlineKeyboardButton("❌ Cancel", callback_data="cancel_search")])
     return InlineKeyboardMarkup(buttons)
 
@@ -296,7 +342,58 @@ async def start_command(client, message):
 @espada.on_callback_query()
 async def callback_query(client, callback_query: CallbackQuery):
     try:
-        if callback_query.data.startswith("title_"):
+        
+        data = callback_query.data
+        
+        if data == "trending":
+            page = 1
+            trending_data = await get_trending_content(page=page)
+            if trending_data:
+                keyboard = create_pagination_keyboard(page, trending_data['total_pages'], "trending")
+                await callback_query.message.edit_caption(
+                    "Trending Movies and TV Shows",
+                    reply_markup=keyboard
+                )
+        
+        elif data == "popular":
+            page = 1
+            popular_data = await get_popular_content(page=page)
+            if popular_data:
+                keyboard = create_pagination_keyboard(page, popular_data['total_pages'], "popular")
+                await callback_query.message.edit_caption(
+                    "Popular Movies",
+                    reply_markup=keyboard
+                )
+        
+        elif data == "upcoming":
+            page = 1
+            upcoming_data = await get_upcoming_content(page=page)
+            if upcoming_data:
+                keyboard = create_pagination_keyboard(page, upcoming_data['total_pages'], "upcoming")
+                await callback_query.message.edit_caption(
+                    "Upcoming Movies",
+                    reply_markup=keyboard
+                )
+        
+        elif "_page_" in data:
+            category, _, page = data.split("_")
+            page = int(page)
+            
+            if category == "trending":
+                content = await get_trending_content(page=page)
+            elif category == "popular":
+                content = await get_popular_content(page=page)
+            elif category == "upcoming":
+                content = await get_upcoming_content(page=page)
+            
+            if content:
+                keyboard = create_pagination_keyboard(page, content['total_pages'], category)
+                await callback_query.message.edit_caption(
+                    f"{category.title()} Content - Page {page}",
+                    reply_markup=keyboard
+                )
+        
+        elif callback_query.data.startswith("title_"):
             # Handle title selection
             imdb_id = callback_query.data.split("_")[1]
             await process_title_selection(callback_query, imdb_id)
@@ -460,20 +557,20 @@ async def default_response(client, message):
             chat_id=message.chat.id,
             error=e
         )
-async def process_title_selection(callback_query, imdb_id):
+async def process_title_selection(callback_query, tmdb_id, media_type="movie"):
     """Process the selected title and generate the appropriate caption"""
     try:
         # Show loading message
         loading_msg = await callback_query.message.edit_text("Fetching details... Please wait!")
 
         # Get detailed information
-        title_data = await get_title_details(imdb_id)
+        title_data = await get_title_details(tmdb_id, media_type)
         if not title_data:
             await loading_msg.edit_text("Failed to fetch title details. Please try again.")
             return
 
         # Create data dictionary for additional message
-        if title_data.get('Type') == 'series':
+        if media_type == "tv":
             series_data = {
                 'movie_p': title_data.get('Title', 'N/A'),
                 'year_p': title_data.get('Year', 'N/A'),
@@ -487,15 +584,15 @@ async def process_title_selection(callback_query, imdb_id):
 `S01 English - Hindi [1080p]`"""
             
             caption = format_series_caption(
-                title_data.get('Title', 'N/A'),
-                title_data.get('Year', 'N/A'),
-                title_data.get('Language', 'N/A'),
-                title_data.get('Language', 'N/A'),
-                title_data.get('Genre', 'N/A'),
-                title_data.get('imdbRating', 'N/A'),
-                title_data.get('totalSeasons', 'N/A'),
-                title_data.get('Type', 'N/A'),
-                title_data.get('Plot', 'N/A')
+                title_data.get('name', 'N/A'),
+                title_data.get('first_air_date', 'N/A')[:4],
+                'Multi',  # You might want to get this from the API
+                title_data.get('original_language', 'N/A'),
+                ', '.join([genre['name'] for genre in title_data.get('genres', [])]),
+                title_data.get('vote_average', 'N/A'),
+                title_data.get('number_of_seasons', 'N/A'),
+                'TV Series',
+                title_data.get('overview', 'N/A')
             )
         else:
             movie_data = {
@@ -508,41 +605,33 @@ async def process_title_selection(callback_query, imdb_id):
 `{movie_data['movie_p']} ({movie_data['year_p']}) 480p - 1080p [{movie_data['audio_p']}]`"""
             
             caption = format_caption(
-                title_data.get('Title', 'N/A'),
-                title_data.get('Year', 'N/A'),
-                title_data.get('Language', 'N/A'),
-                title_data.get('Language', 'N/A'),
-                title_data.get('Genre', 'N/A'),
-                title_data.get('imdbRating', 'N/A'),
-                title_data.get('Runtime', 'N/A'),
-                title_data.get('Rated', 'U/A'),
-                title_data.get('Plot', 'N/A')
+                title_data.get('title', 'N/A'),
+                title_data.get('release_date', 'N/A')[:4],
+                'Multi',  # You might want to get this from the API
+                title_data.get('original_language', 'N/A'),
+                ', '.join([genre['name'] for genre in title_data.get('genres', [])]),
+                str(title_data.get('vote_average', 'N/A')),
+                str(title_data.get('runtime', 'N/A')) + ' min',
+                title_data.get('adult', False) and 'A' or 'U/A',
+                title_data.get('overview', 'N/A')
             )
 
         # Handle poster and send messages
-        poster_url = title_data.get('Poster')
-        if poster_url and poster_url != 'N/A':
+        poster_path = title_data.get('poster_path')
+        if poster_path:
+            poster_url = f"https://image.tmdb.org/t/p/w500{poster_path}"
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(poster_url) as response:
                         if response.status == 200:
                             poster_data = await response.read()
                             poster_stream = BytesIO(poster_data)
-                            poster_stream.name = f"poster_{imdb_id}.jpg"
+                            poster_stream.name = f"poster_{tmdb_id}.jpg"
                             
-                            # Delete loading message
                             await callback_query.message.delete()
-                            
-                            # Send main caption with photo
                             await callback_query.message.reply_photo(
                                 photo=poster_stream,
                                 caption=caption,
-                                parse_mode=ParseMode.MARKDOWN
-                            )
-                            
-                            # Send additional message
-                            await callback_query.message.reply_text(
-                                additional_message,
                                 parse_mode=ParseMode.MARKDOWN
                             )
                             return
