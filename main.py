@@ -839,18 +839,6 @@ async def process_title_selection(callback_query, tmdb_id, media_type="movie"):
         # Send additional message
         await callback_query.message.reply_text(additional_message, parse_mode=ParseMode.MARKDOWN)
 
-        # If there are similar titles, create and send a suggestion message
-        if similar_data and similar_data.get('results'):
-            similar_titles = similar_data['results'][:5]  # Limit to 5 suggestions
-            suggestion_text = "📺 You might also like:\n\n"
-            for title in similar_titles:
-                name = title.get('title') or title.get('name')
-                year = (title.get('release_date') or title.get('first_air_date', ''))[:4]
-                similar_rating = title.get('imdb_rating', 'N/A')
-                suggestion_text += f"• {name} ({year}) - ⭐ {similar_rating}/10\n"
-
-            await callback_query.message.reply_text(suggestion_text)
-
     except Exception as e:
         error_msg = f"Title selection error: {str(e)}"
         print(error_msg)
