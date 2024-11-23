@@ -598,7 +598,7 @@ async def caption_command(client, message):
         results = {
             'results': search_results[:10],
             'page': 1,
-            'total_page': 1
+            'total_pages': 1
         }
         
         keyborard = create_content_list_keyboard(
@@ -641,7 +641,7 @@ async def series_command(client, message):
         results = {
             'results': search_results[:10],
             'page': 1,
-            'total_page': 1
+            'total_pages': 1
         }
        
         keyboard = create_content_list_keyboard(
