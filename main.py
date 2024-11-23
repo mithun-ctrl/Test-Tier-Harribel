@@ -28,7 +28,9 @@ start_keyboard = InlineKeyboardMarkup([
      InlineKeyboardButton("🤖 About", callback_data="about")],
     [InlineKeyboardButton("💬 Support", callback_data="support"),
      InlineKeyboardButton("ℹ️ Help", callback_data="help")],
-    [InlineKeyboardButton("🍿 Movie/Anime Hub", callback_data="movie_anime_hub")]
+    [InlineKeyboardButton("🎬 MoAni Hub", callback_data="movie_anime_hub"),
+     InlineKeyboardButton("🙅‍♂️ Close", callback_data="close")
+     ]
 ])
 
 async def get_tmdb_data(endpoint, params=None):
@@ -48,17 +50,6 @@ async def get_tmdb_data(endpoint, params=None):
         print(f"TMDB API error: {str(e)}")
         return None
 
-async def get_imdb_rating(imdb_id):
-    try:
-        url = f"http://www.omdbapi.com/?i={imdb_id}&apikey={OMDB_API_KEY}"
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    return data.get('imdbRating', 'N/A')
-    except Exception as e:
-        print(f"Error fetching IMDb rating: {str(e)}")
-        return 'N/A'
 
 async def search_titles(query, media_type="movie", page=1):
     """Search for movies/TV shows using TMDB API"""
@@ -90,6 +81,18 @@ async def get_title_details(tmdb_id, media_type="movie"):
         if imdb_rating:
             data['imdb_rating'] = imdb_rating         
     return data
+
+async def get_imdb_rating(imdb_id):
+    try:
+        url = f"http://www.omdbapi.com/?i={imdb_id}&apikey={OMDB_API_KEY}"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return data.get('imdbRating', 'N/A')
+    except Exception as e:
+        print(f"Error fetching IMDb rating: {str(e)}")
+        return 'N/A'
 
 async def get_similar_titles(tmdb_id, media_type="movie"):
     """Get similar movies/TV shows"""
@@ -601,6 +604,8 @@ async def callback_query(client, callback_query: CallbackQuery):
                 )
             else:
                 await callback_query.answer("Already on Movie screen")
+        elif callback_query.data == "close":
+            await callback_query.message.delete()
         
         await callback_query.answer()
     
