@@ -589,17 +589,27 @@ async def caption_command(client, message):
         status_message = await message.reply_text("Searching for movies... Please wait!")
 
         # Search for movies
-        results = await search_titles(movie_name, "movie")
+        search_results = await search_titles(movie_name, "movie")
         
-        if not results:
+        if not search_results:
             await status_message.edit_text("No movies found with that title. Please try a different search.")
             return
 
-        # Create and send results keyboard
-        reply_markup = create_content_list_keyboard(results)
+        results = {
+            'results': search_results[:10],
+            'page': 1,
+            'total_page': 1
+        }
+        
+        keyborard = create_content_list_keyboard(
+            results['results'],
+            results['page'],
+            results['total_pages'],
+            'movie_search'
+        )
         await status_message.edit_text(
             "Found the following movies. Please select one:",
-            reply_markup=reply_markup
+            reply_markup=keyborard
         )
 
     except Exception as e:
@@ -622,17 +632,27 @@ async def series_command(client, message):
         status_message = await message.reply_text("Searching for series... Please wait!")
 
         # Search for series
-        results = await search_titles(series_name, "series")
+        search_results = await search_titles(series_name, "tv")
         
-        if not results:
+        if not search_results:
             await status_message.edit_text("No series found with that title. Please try a different search.")
             return
 
-        # Create and send results keyboard
-        reply_markup = create_content_list_keyboard(results)
+        results = {
+            'results': search_results[:10],
+            'page': 1,
+            'total_page': 1
+        }
+       
+        keyboard = create_content_list_keyboard(
+            results['results'],
+            results['page'],
+            results['total_pages'],
+            'series_search'
+        )
         await status_message.edit_text(
             "Found the following series. Please select one:",
-            reply_markup=reply_markup
+            reply_markup=keyboard
         )
 
     except Exception as e:
