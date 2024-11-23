@@ -7,9 +7,9 @@ from io import BytesIO
 from plugins.logs import Logger
 from script import START_TEXT, HELP_TEXT, SUPPORT_TEXT, ABOUT_TEXT,MOVIE_TEXT
 import random
-from config import espada, api_hash, api_id, bot_token, rapidapi_key, log_channel
+from config import espada, api_hash, api_id, bot_token, log_channel
 
-if not all([api_id, api_hash, bot_token, rapidapi_key, log_channel]):
+if not all([api_id, api_hash, bot_token, log_channel]):
     raise ValueError("Please set environment variables correctly")
 
 logger = Logger(espada)
