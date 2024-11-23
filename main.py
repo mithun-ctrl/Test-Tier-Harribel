@@ -181,17 +181,17 @@ def determine_audio(movie_details):
     
     # Check for Hindi content
     if 'india' in country or 'hindi' in language:
-        return 'Hindi'
+        return 'Hindi-Telugu'
     
     if 'hindi' in actors or 'hindi' in plot:
         return 'Hindi'
     
     # Check for English content
     if 'usa' in country or 'uk' in country or 'english' in language:
-        return 'English'
+        return 'Hindi-English'
     
     if 'english' in actors or 'english' in plot:
-        return 'English'
+        return 'Hindi-English'
     
     # Default behavior for other cases
     if country and country not in ['usa', 'uk', 'india']:
@@ -754,9 +754,9 @@ async def process_title_selection(callback_query, tmdb_id, media_type="movie"):
             poster_url = f"https://image.tmdb.org/t/p/w500{poster_path}"
             media_group.append(InputMediaPhoto(poster_url, caption=caption, parse_mode=ParseMode.MARKDOWN))
 
-        # Add additional backdrops (up to 4 more images)
+        # Add additional backdrops (up to 2 more images)
         if images_data and images_data.get('backdrops'):
-            for backdrop in images_data['backdrops'][:4]:  # Limit to 4 additional images
+            for backdrop in images_data['backdrops'][:2]:  # Limit to 2 additional images
                 backdrop_path = backdrop.get('file_path')
                 if backdrop_path:
                     backdrop_url = f"https://image.tmdb.org/t/p/w500{backdrop_path}"
