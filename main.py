@@ -5,7 +5,7 @@ import asyncio
 import aiohttp
 from io import BytesIO
 from plugins.logs import Logger
-from script import START_TEXT, HELP_TEXT, SUPPORT_TEXT, ABOUT_TEXT,MOVIE_TEXT
+from script import START_TEXT, HELP_TEXT, SUPPORT_TEXT, ABOUT_TEXT, MOVIE_TEXT
 import random
 from config import espada, api_hash, api_id, bot_token, log_channel, api_token, omdb_api
 
@@ -27,7 +27,8 @@ start_keyboard = InlineKeyboardMarkup([
     [InlineKeyboardButton("🏠 Home", callback_data="home"),
      InlineKeyboardButton("🤖 About", callback_data="about")],
     [InlineKeyboardButton("💬 Support", callback_data="support"),
-     InlineKeyboardButton("ℹ️ Help", callback_data="help")]
+     InlineKeyboardButton("ℹ️ Help", callback_data="help")],
+    [InlineKeyboardButton("🍿 Movie/Anime Hub", callback_data="movie_anime_hub")]
 ])
 
 async def get_tmdb_data(endpoint, params=None):
@@ -590,7 +591,7 @@ async def callback_query(client, callback_query: CallbackQuery):
             else:
                 await callback_query.answer("Already on Support screen")
         
-        elif callback_query.data == "movie":
+        elif callback_query.data == "movie_anime_hub":
             current_caption = callback_query.message.caption or callback_query.message.text
             if current_caption != MOVIE_TEXT:
                 await callback_query.message.edit_caption(
