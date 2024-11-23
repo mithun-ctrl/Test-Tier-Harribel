@@ -151,7 +151,14 @@ def create_content_list_keyboard(results, page, total_pages, command_type):
         title = item.get('title') or item.get('name')
         release_date = item.get('release_date') or item.get('first_air_date', '')
         year = release_date[:4] if release_date else 'N/A'
-        media_type = item.get('media_type', 'movie')
+        
+        # Determine media type correctly
+        if 'first_air_date' in item:
+            media_type = 'tv'
+        elif 'release_date' in item:
+            media_type = 'movie'
+        else:
+            media_type = item.get('media_type', 'movie')
         
         text = f"{title} ({year})"
         callback_data = f"title_{item['id']}_{media_type}"
@@ -524,7 +531,6 @@ async def upcoming_command(client, message):
 @espada.on_callback_query()
 async def callback_query(client, callback_query: CallbackQuery):
     try:
-        
         data = callback_query.data
         
         if "_page_" in data:
@@ -559,9 +565,14 @@ async def callback_query(client, callback_query: CallbackQuery):
                 await callback_query.message.edit_text("No content found for this page.")
         
         elif data.startswith("title_"):
-            tmdb_id = data.split("_")[1]
-            media_type = data.split("_")[2] if len(data.split("_")) > 2 else "movie"
-            await process_title_selection(callback_query, tmdb_id, media_type)
+            # Parse the callback data correctly
+            parts = data.split("_")
+            if len(parts) >= 3:
+                tmdb_id = parts[1]
+                media_type = parts[2]
+                await process_title_selection(callback_query, tmdb_id, media_type)
+            else:
+                await callback_query.answer("Invalid selection data")
         
         elif callback_query.data == "cancel_search":
             await callback_query.message.delete()
@@ -692,27 +703,27 @@ async def series_command(client, message):
         series_name = " ".join(parts[1:])
         status_message = await message.reply_text("Searching for series... Please wait!")
 
-        # Search for series
-        search_results = await search_titles(series_name, "tv")
+        # Search specifically for TV series
+        results = await search_titles(series_name, "tv")
         
-        if not search_results:
+        if not results:
             await status_message.edit_text("No series found with that title. Please try a different search.")
             return
 
-        results = {
-            'results': search_results[:10],
-            'page': 1,
-            'total_pages': 1
-        }
-       
+        # Ensure each result is marked as a TV series
+        for result in results:
+            result['media_type'] = 'tv'
+
+        # Create keyboard with properly tagged results
         keyboard = create_content_list_keyboard(
-            results['results'],
-            results['page'],
-            results['total_pages'],
-            'series_search'
+            results[:10],
+            1,
+            1,
+            "series_search"
         )
+        
         await status_message.edit_text(
-            "Found the following series. Please select one:",
+            "📺 Found the following series. Please select one:",
             reply_markup=keyboard
         )
 
@@ -761,7 +772,6 @@ async def process_title_selection(callback_query, tmdb_id, media_type="movie"):
 
         imdb_rating = title_data.get('imdb_rating', 'N/A')
         
-        
         # Create data dictionary for additional message
         if media_type == "tv":
             series_data = {
@@ -777,15 +787,16 @@ async def process_title_selection(callback_query, tmdb_id, media_type="movie"):
 `S01 English - Hindi [1080p]`"""
             
             caption = format_series_caption(
-                title_data.get('name', 'N/A'),
-                title_data.get('first_air_date', 'N/A')[:4] if title_data.get('first_air_date') else 'N/A',
-                'Multi',
-                title_data.get('original_language', 'N/A'),
-                ', '.join([genre['name'] for genre in title_data.get('genres', [])]),
-                imdb_rating,
-                title_data.get('number_of_seasons', 'N/A'),
-                'TV Series',
-                title_data.get('overview', 'N/A')
+                movie=title_data.get('name', 'N/A'),
+                year=title_data.get('first_air_date', 'N/A')[:4] if title_data.get('first_air_date') else 'N/A',
+                audio='Multi',
+                language=title_data.get('original_language', 'N/A'),
+                genre=', '.join([genre['name'] for genre in title_data.get('genres', [])]),
+                imdb_rating=imdb_rating,
+                runTime=str(title_data.get('episode_run_time', [0])[0] if title_data.get('episode_run_time') else 'N/A') + ' min',
+                totalSeason=str(title_data.get('number_of_seasons', 'N/A')),
+                type='TV Series',
+                synopsis=title_data.get('overview', 'N/A')
             )
         else:
             movie_data = {
@@ -798,45 +809,46 @@ async def process_title_selection(callback_query, tmdb_id, media_type="movie"):
 `{movie_data['movie_p']} ({movie_data['year_p']}) 480p - 1080p [{movie_data['audio_p']}]`"""
             
             caption = format_caption(
-                title_data.get('title', 'N/A'),
-                title_data.get('release_date', 'N/A')[:4] if title_data.get('release_date') else 'N/A',
-                'Multi',
-                title_data.get('original_language', 'N/A'),
-                ', '.join([genre['name'] for genre in title_data.get('genres', [])]),
-                imdb_rating,
-                str(title_data.get('runtime', 'N/A')) + ' min',
-                title_data.get('adult', False) and 'A' or 'U/A',
-                title_data.get('overview', 'N/A')
+                movie=title_data.get('title', 'N/A'),
+                year=title_data.get('release_date', 'N/A')[:4] if title_data.get('release_date') else 'N/A',
+                audio='Multi',
+                language=title_data.get('original_language', 'N/A'),
+                genre=', '.join([genre['name'] for genre in title_data.get('genres', [])]),
+                imdb_rating=imdb_rating,
+                runTime=str(title_data.get('runtime', 'N/A')) + ' min',
+                rated=title_data.get('adult', False) and 'A' or 'U/A',
+                synopsis=title_data.get('overview', 'N/A')
             )
-
-        # Create media group for multiple images
-        media_group = []
-        
-        # Add main poster
-        poster_path = title_data.get('poster_path')
-        if poster_path:
-            poster_url = f"https://image.tmdb.org/t/p/w500{poster_path}"
-            media_group.append(InputMediaPhoto(poster_url, caption=caption, parse_mode=ParseMode.MARKDOWN))
-
-        # Add additional backdrops (up to 2 more images)
-        if images_data and images_data.get('backdrops'):
-            for backdrop in images_data['backdrops'][:2]:  # Limit to 2 additional images
-                backdrop_path = backdrop.get('file_path')
-                if backdrop_path:
-                    backdrop_url = f"https://image.tmdb.org/t/p/w500{backdrop_path}"
-                    media_group.append(InputMediaPhoto(backdrop_url))
 
         # Delete loading message
         await loading_msg.delete()
 
-        # Send media group with images
-        if media_group:
-            await callback_query.message.reply_media_group(media_group)
-        else:
-            # Fallback to text-only if no images
-            await callback_query.message.reply_text(caption, parse_mode=ParseMode.MARKDOWN)
+        # Send main poster with caption
+        poster_path = title_data.get('poster_path')
+        if poster_path:
+            poster_url = f"https://image.tmdb.org/t/p/w500{poster_path}"
+            await callback_query.message.reply_photo(
+                photo=poster_url,
+                caption=caption,
+                parse_mode=ParseMode.MARKDOWN
+            )
 
-        # Send additional message
+        # Send backdrops separately with a simple caption
+        if images_data and images_data.get('backdrops'):
+            backdrop_media = []
+            for backdrop in images_data['backdrops'][:3]:  # Limit to 3 backdrop images
+                backdrop_path = backdrop.get('file_path')
+                if backdrop_path:
+                    backdrop_url = f"https://image.tmdb.org/t/p/original{backdrop_path}"
+                    backdrop_media.append(InputMediaPhoto(
+                        media=backdrop_url,
+                        caption=f"🎬 Backdrop Image for {title_data.get('title') or title_data.get('name', 'N/A')}"
+                    ))
+            
+            if backdrop_media:
+                await callback_query.message.reply_media_group(backdrop_media)
+
+        # Send additional message for file naming format
         await callback_query.message.reply_text(additional_message, parse_mode=ParseMode.MARKDOWN)
 
     except Exception as e:
