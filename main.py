@@ -7,17 +7,18 @@ from io import BytesIO
 from plugins.logs import Logger
 from script import START_TEXT, HELP_TEXT, SUPPORT_TEXT, ABOUT_TEXT,MOVIE_TEXT
 import random
-from config import espada, api_hash, api_id, bot_token, log_channel
+from config import espada, api_hash, api_id, bot_token, log_channel, api_token
 
-if not all([api_id, api_hash, bot_token, log_channel]):
+if not all([api_id, api_hash, bot_token, log_channel, api_token, api_token]):
     raise ValueError("Please set environment variables correctly")
 
 logger = Logger(espada)
 
 TMDB_BASE_URL = "https://api.themoviedb.org/3"
+TMDB_API_KEY = api_token
 TMDB_HEADERS = {
     "accept": "application/json",
-    "Authorization": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiIwYTY5ZjkzMTgwYjQ3MTgzOWM5ZjY4OTY2OTBhYWU2ZSIsIm5iZiI6MTczMjMzNzMzOS45Mjc2ODg2LCJzdWIiOiI2NzMwOGE1MDNkMWIxOWJmM2RiYzUzYWYiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.lW695xTa0E2Dg4bEKOIyTc1-hjgMyGVZfPweM5aEG9U"
+    "Authorization": f"Bearer {TMDB_API_KEY}"
 }
 
 # Define keyboard layouts
@@ -25,20 +26,22 @@ start_keyboard = InlineKeyboardMarkup([
     [InlineKeyboardButton("🏠 Home", callback_data="home"),
      InlineKeyboardButton("🤖 About", callback_data="about")],
     [InlineKeyboardButton("💬 Support", callback_data="support"),
-     InlineKeyboardButton("ℹ️ Help", callback_data="help")],
-    [InlineKeyboardButton("🎬 Trending", callback_data="trending"),
-     InlineKeyboardButton("📺 Popular", callback_data="popular")],
-    [InlineKeyboardButton("🆕 Upcoming", callback_data="upcoming"),
-     InlineKeyboardButton("🔍 Search", callback_data="search")]
+     InlineKeyboardButton("ℹ️ Help", callback_data="help")]
 ])
 
 async def get_tmdb_data(endpoint, params=None):
     """Generic function to fetch data from TMDB API"""
     try:
         url = f"{TMDB_BASE_URL}/{endpoint}"
+        params = params or {}
+        params['api_key'] = TMDB_API_KEY
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=TMDB_HEADERS, params=params) as response:
-                return await response.json()
+                if response.status == 200:
+                    return await response.json()
+                else:
+                    print(f"TMDB API error: {response.status}")
+                    return None
     except Exception as e:
         print(f"TMDB API error: {str(e)}")
         return None
@@ -87,37 +90,42 @@ async def get_upcoming_content(page=1):
     params = {"page": page}
     return await get_tmdb_data(endpoint, params)
 
-def create_pagination_keyboard(current_page, total_pages, base_callback):
-    """Create pagination keyboard"""
+def create_content_list_keyboard(results, page, total_pages, command_type):
+    """Create keyboard for content listings with pagination"""
     buttons = []
-    if current_page > 1:
-        buttons.append(InlineKeyboardButton("⬅️ Previous", callback_data=f"{base_callback}_page_{current_page-1}"))
-    if current_page < total_pages:
-        buttons.append(InlineKeyboardButton("Next ➡️", callback_data=f"{base_callback}_page_{current_page+1}"))
-    buttons.append(InlineKeyboardButton("🏠 Home", callback_data="home"))
-    return InlineKeyboardMarkup([buttons])
-
-def create_search_results_keyboard(results, page=1, total_pages=1):
-    """Create inline keyboard from search results"""
-    buttons = []
+    
+    # Add content buttons
     for item in results:
         title = item.get('title') or item.get('name')
         release_date = item.get('release_date') or item.get('first_air_date', '')
         year = release_date[:4] if release_date else 'N/A'
+        media_type = item.get('media_type', 'movie')
+        
         text = f"{title} ({year})"
-        callback_data = f"title_{item['id']}_{item.get('media_type', 'movie')}"
+        callback_data = f"title_{item['id']}_{media_type}"
         buttons.append([InlineKeyboardButton(text, callback_data=callback_data)])
     
     # Add pagination buttons
-    pagination = []
+    nav_buttons = []
     if page > 1:
-        pagination.append(InlineKeyboardButton("⬅️ Previous", callback_data=f"search_page_{page-1}"))
+        nav_buttons.append(InlineKeyboardButton(
+            "⬅️ Previous",
+            callback_data=f"{command_type}_page_{page-1}"
+        ))
     if page < total_pages:
-        pagination.append(InlineKeyboardButton("Next ➡️", callback_data=f"search_page_{page+1}"))
+        nav_buttons.append(InlineKeyboardButton(
+            "Next ➡️",
+            callback_data=f"{command_type}_page_{page+1}"
+        ))
     
-    buttons.append(pagination)
-    buttons.append([InlineKeyboardButton("❌ Cancel", callback_data="cancel_search")])
+    if nav_buttons:
+        buttons.append(nav_buttons)
+    
+    # Add home button
+    buttons.append([InlineKeyboardButton("🏠 Home", callback_data="home")])
+    
     return InlineKeyboardMarkup(buttons)
+
 
 async def download_image(url):
     """Download image from URL"""
@@ -338,6 +346,110 @@ async def start_command(client, message):
             error=e
         )
 
+@espada.on_message(filters.command(["trending", "tr"]))
+async def trending_command(client, message):
+    try:
+        # Check for optional page number in command
+        parts = message.text.split()
+        page = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 1
+        
+        # Show loading message
+        status_message = await message.reply_text("Fetching trending content... Please wait!")
+        
+        # Get trending content
+        trending_data = await get_trending_content(page=page)
+        
+        if not trending_data or not trending_data.get('results'):
+            await status_message.edit_text("No trending content found.")
+            return
+        
+        # Create keyboard with results
+        keyboard = create_content_list_keyboard(
+            trending_data['results'],
+            page,
+            trending_data['total_pages'],
+            'trending'
+        )
+        
+        # Update message with results
+        await status_message.edit_text(
+            f"📈 Trending Movies & TV Shows (Page {page}/{trending_data['total_pages']})",
+            reply_markup=keyboard
+        )
+        
+    except Exception as e:
+        await message.reply_text("An error occurred while fetching trending content.")
+        print(f"Trending command error: {str(e)}")
+
+@espada.on_message(filters.command(["popular", "pp"]))
+async def popular_command(client, message):
+    try:
+        # Check for optional page number in command
+        parts = message.text.split()
+        page = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 1
+        
+        # Show loading message
+        status_message = await message.reply_text("Fetching popular content... Please wait!")
+        
+        # Get popular content
+        popular_data = await get_popular_content(page=page)
+        
+        if not popular_data or not popular_data.get('results'):
+            await status_message.edit_text("No popular content found.")
+            return
+        
+        # Create keyboard with results
+        keyboard = create_content_list_keyboard(
+            popular_data['results'],
+            page,
+            popular_data['total_pages'],
+            'popular'
+        )
+        
+        # Update message with results
+        await status_message.edit_text(
+            f"🔥 Popular Movies (Page {page}/{popular_data['total_pages']})",
+            reply_markup=keyboard
+        )
+        
+    except Exception as e:
+        await message.reply_text("An error occurred while fetching popular content.")
+        print(f"Popular command error: {str(e)}")
+
+@espada.on_message(filters.command(["upcoming", "up"]))
+async def upcoming_command(client, message):
+    try:
+        # Check for optional page number in command
+        parts = message.text.split()
+        page = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 1
+        
+        # Show loading message
+        status_message = await message.reply_text("Fetching upcoming content... Please wait!")
+        
+        # Get upcoming content
+        upcoming_data = await get_upcoming_content(page=page)
+        
+        if not upcoming_data or not upcoming_data.get('results'):
+            await status_message.edit_text("No upcoming content found.")
+            return
+        
+        # Create keyboard with results
+        keyboard = create_content_list_keyboard(
+            upcoming_data['results'],
+            page,
+            upcoming_data['total_pages'],
+            'upcoming'
+        )
+        
+        # Update message with results
+        await status_message.edit_text(
+            f"🆕 Upcoming Movies (Page {page}/{upcoming_data['total_pages']})",
+            reply_markup=keyboard
+        )
+        
+    except Exception as e:
+        await message.reply_text("An error occurred while fetching upcoming content.")
+        print(f"Upcoming command error: {str(e)}")
 
 @espada.on_callback_query()
 async def callback_query(client, callback_query: CallbackQuery):
@@ -345,61 +457,41 @@ async def callback_query(client, callback_query: CallbackQuery):
         
         data = callback_query.data
         
-        if data == "trending":
-            page = 1
-            trending_data = await get_trending_content(page=page)
-            if trending_data:
-                keyboard = create_pagination_keyboard(page, trending_data['total_pages'], "trending")
-                await callback_query.message.edit_caption(
-                    "Trending Movies and TV Shows",
-                    reply_markup=keyboard
-                )
-        
-        elif data == "popular":
-            page = 1
-            popular_data = await get_popular_content(page=page)
-            if popular_data:
-                keyboard = create_pagination_keyboard(page, popular_data['total_pages'], "popular")
-                await callback_query.message.edit_caption(
-                    "Popular Movies",
-                    reply_markup=keyboard
-                )
-        
-        elif data == "upcoming":
-            page = 1
-            upcoming_data = await get_upcoming_content(page=page)
-            if upcoming_data:
-                keyboard = create_pagination_keyboard(page, upcoming_data['total_pages'], "upcoming")
-                await callback_query.message.edit_caption(
-                    "Upcoming Movies",
-                    reply_markup=keyboard
-                )
-        
-        elif "_page_" in data:
+        if "_page_" in data:
             category, _, page = data.split("_")
             page = int(page)
             
+            # Show loading message
+            await callback_query.message.edit_text("Loading next page... Please wait!")
+            
             if category == "trending":
                 content = await get_trending_content(page=page)
+                title = "📈 Trending Movies & TV Shows"
             elif category == "popular":
                 content = await get_popular_content(page=page)
+                title = "🔥 Popular Movies"
             elif category == "upcoming":
                 content = await get_upcoming_content(page=page)
+                title = "🆕 Upcoming Movies"
             
-            if content:
-                keyboard = create_pagination_keyboard(page, content['total_pages'], category)
-                await callback_query.message.edit_caption(
-                    f"{category.title()} Content - Page {page}",
+            if content and content.get('results'):
+                keyboard = create_content_list_keyboard(
+                    content['results'],
+                    page,
+                    content['total_pages'],
+                    category
+                )
+                await callback_query.message.edit_text(
+                    f"{title} (Page {page}/{content['total_pages']})",
                     reply_markup=keyboard
                 )
+            else:
+                await callback_query.message.edit_text("No content found for this page.")
         
-        elif callback_query.data.startswith("title_"):
-            # Handle title selection
-            imdb_id = callback_query.data.split("_")[1]
-            await process_title_selection(callback_query, imdb_id)
-        
-        elif callback_query.data == "cancel_search":
-            await callback_query.message.delete()
+        elif data.startswith("title_"):
+            tmdb_id = data.split("_")[1]
+            media_type = data.split("_")[2] if len(data.split("_")) > 2 else "movie"
+            await process_title_selection(callback_query, tmdb_id, media_type)
             
         elif callback_query.data == "home":
             # Check if the current caption is different from START_TEXT
@@ -490,7 +582,7 @@ async def caption_command(client, message):
             return
 
         # Create and send results keyboard
-        reply_markup = create_search_results_keyboard(results)
+        reply_markup = create_content_list_keyboard(results)
         await status_message.edit_text(
             "Found the following movies. Please select one:",
             reply_markup=reply_markup
@@ -523,7 +615,7 @@ async def series_command(client, message):
             return
 
         # Create and send results keyboard
-        reply_markup = create_search_results_keyboard(results)
+        reply_markup = create_content_list_keyboard(results)
         await status_message.edit_text(
             "Found the following series. Please select one:",
             reply_markup=reply_markup
