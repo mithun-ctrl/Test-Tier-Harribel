@@ -19,7 +19,7 @@ from config import (espada,
         DUMP_CHANNELS,
         TMDB_HEADERS
 )
-from handlers.tmdb import tmdbHelpers
+from handlers.tmdb import tmdbFunctions
 
 
 if not all([api_id, api_hash, bot_token, log_channel, tmdb_api_token, omdb_api]):
@@ -29,95 +29,36 @@ logger = Logger(espada)
 OMDB_API_KEY= omdb_api
 TMDB_API_KEY = tmdb_api_token
 
-async def get_tmdb_data(endpoint, params=None):
-    """Generic function to fetch data from TMDB API"""
-    try:
-        url = f"{TMDB_BASE_URL}/{endpoint}"
-        params = params or {}
-        params['api_key'] = TMDB_API_KEY
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers=TMDB_HEADERS, params=params) as response:
-                if response.status == 200:
-                    return await response.json()
-                else:
-                    print(f"TMDB API error: {response.status}")
-                    return None
-    except Exception as e:
-        print(f"TMDB API error: {str(e)}")
-        return None
-
-
-async def search_titles(query, media_type="movie", page=1):
-    """Search for movies/TV shows using TMDB API"""
-    params = {
-        "query": query,
-        "include_adult": "false",
-        "language": "en-US",
-        "page": page
-    }
-    
-    if media_type == "movie":
-        endpoint = "search/movie"
-    else:
-        endpoint = "search/tv"
-        
-    data = await get_tmdb_data(endpoint, params)
-    return data.get('results', []) if data else []
-
-async def get_title_details(tmdb_id, media_type="movie"):
-    """Get detailed information for a specific title"""
-    try:
-        endpoint = f"{media_type}/{tmdb_id}"
-        params = {
-            "language": "en-US",
-            "append_to_response": "credits,videos,images,external_ids"
-        }
-        
-        data = await get_tmdb_data(endpoint, params)
-        
-        if data:
-            # Get IMDb ID from external_ids
-            imdb_id = data.get('external_ids', {}).get('imdb_id')
-            if imdb_id:
-                # Fetch and add IMDb rating
-                imdb_rating = await tmdbHelpers.get_imdb_rating(imdb_id)
-                data['imdb_rating'] = imdb_rating
-            else:
-                data['imdb_rating'] = '0'
-                
-        return data
-    except Exception as e:
-        print(f"Error getting title details: {str(e)}")
-        return None
+tmdb = tmdbFunctions()
 
 async def get_similar_titles(tmdb_id, media_type="movie"):
     """Get similar movies/TV shows"""
     endpoint = f"{media_type}/{tmdb_id}/similar"
     params = {"page": 1}
-    return await get_tmdb_data(endpoint, params)
+    return await tmdb.get_tmdb_data(endpoint, params)
 
 async def get_images(tmdb_id, media_type="movie"):
     """Get additional images for a title"""
     endpoint = f"{media_type}/{tmdb_id}/images"
-    return await get_tmdb_data(endpoint)
+    return await tmdb.get_tmdb_data(endpoint)
 
 async def get_trending_content(media_type="all", time_window="week", page=1):
     """Get trending movies/TV shows"""
     endpoint = f"trending/{media_type}/{time_window}"
     params = {"page": page}
-    return await get_tmdb_data(endpoint, params)
+    return await tmdb.get_tmdb_data(endpoint, params)
 
 async def get_popular_content(media_type="movie", page=1):
     """Get popular movies/TV shows"""
     endpoint = f"{media_type}/popular"
     params = {"page": page}
-    return await get_tmdb_data(endpoint, params)
+    return await tmdb.get_tmdb_data(endpoint, params)
 
 async def get_upcoming_content(page=1):
     """Get upcoming movies"""
     endpoint = "movie/upcoming"
     params = {"page": page}
-    return await get_tmdb_data(endpoint, params)
+    return await tmdb.get_tmdb_data(endpoint, params)
 
 def create_content_list_keyboard(results, page, total_pages, command_type):
     """Create keyboard for content listings with pagination"""
@@ -667,7 +608,7 @@ async def caption_command(client, message):
         status_message = await message.reply_text("Searching for movies... Please wait!")
 
         # Search for movies
-        search_results = await search_titles(movie_name, "movie")
+        search_results = await tmdb.search_titles(movie_name, "movie")
         
         if not search_results:
             await status_message.edit_text("No movies found with that title. Please try a different search.")
@@ -720,7 +661,7 @@ async def series_command(client, message):
         status_message = await message.reply_text("Searching for series... Please wait!")
 
         # Search specifically for TV series
-        results = await search_titles(series_name, "tv")
+        results = await tmdb.search_titles(series_name, "tv")
         
         if not results:
             await status_message.edit_text("No series found with that title. Please try a different search.")
@@ -861,7 +802,7 @@ async def process_title_selection(callback_query: CallbackQuery, tmdb_id: str, m
         loading_msg = await callback_query.message.edit_text("Fetching details... Please wait!")
 
         # Get detailed information
-        title_data = await get_title_details(tmdb_id, media_type)
+        title_data = await tmdb.get_title_details(tmdb_id, media_type)
         similar_data = await get_similar_titles(tmdb_id, media_type)
         images_data = await get_images(tmdb_id, media_type)
 
@@ -964,7 +905,7 @@ async def caption_command(client, message):
         status_message = await message.reply_text("Searching for movies... Please wait!")
 
         # Search for movies
-        results = await search_titles(movie_name, "movie")
+        results = await tmdb.search_titles(movie_name, "movie")
         
         if not results:
             await status_message.edit_text("No movies found with that title. Please try a different search.")
@@ -996,7 +937,7 @@ async def series_command(client, message):
         status_message = await message.reply_text("Searching for series... Please wait!")
 
         # Search for series
-        results = await search_titles(series_name, "tv")
+        results = await tmdb.search_titles(series_name, "tv")
         
         if not results:
             await status_message.edit_text("No series found with that title. Please try a different search.")
