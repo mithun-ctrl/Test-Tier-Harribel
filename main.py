@@ -19,6 +19,8 @@ from config import (espada,
         DUMP_CHANNELS,
         TMDB_HEADERS
 )
+from handlers.tmdb import tmdbHelpers
+
 
 if not all([api_id, api_hash, bot_token, log_channel, tmdb_api_token, omdb_api]):
     raise ValueError("Please set environment variables correctly")
@@ -26,26 +28,6 @@ if not all([api_id, api_hash, bot_token, log_channel, tmdb_api_token, omdb_api])
 logger = Logger(espada)
 OMDB_API_KEY= omdb_api
 TMDB_API_KEY = tmdb_api_token
-
-async def get_imdb_rating(imdb_id):
-    """
-    Fetch IMDb rating using OMDB API
-    """
-    try:
-        if not imdb_id:
-            return 'N/A'
-            
-        url = f"http://www.omdbapi.com/?i={imdb_id}&apikey={OMDB_API_KEY}"
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    rating = data.get('imdbRating')
-                    return rating if rating and rating != 'N/A' else '0'
-                return '0'
-    except Exception as e:
-        print(f"Error fetching IMDb rating: {str(e)}")
-        return '0'
 
 async def get_tmdb_data(endpoint, params=None):
     """Generic function to fetch data from TMDB API"""
@@ -98,7 +80,7 @@ async def get_title_details(tmdb_id, media_type="movie"):
             imdb_id = data.get('external_ids', {}).get('imdb_id')
             if imdb_id:
                 # Fetch and add IMDb rating
-                imdb_rating = await get_imdb_rating(imdb_id)
+                imdb_rating = await tmdbHelpers.get_imdb_rating(imdb_id)
                 data['imdb_rating'] = imdb_rating
             else:
                 data['imdb_rating'] = '0'
