@@ -749,30 +749,6 @@ async def set_dump_channel(client, message):
     except Exception as e:
         await message.reply_text("An error occurred while setting dump channel.")
         print(f"Set dump channel error: {str(e)}") 
-        
-@espada.on_message(~filters.command(["start", "captionM", "cm","captionS", "cs"]))
-async def default_response(client, message):
-    try:
-        
-        await message.reply_text("⚠ Invaild command!")
-
-        # Log the default response
-        await logger.log_message(
-            action="Default Response",
-            user_id=message.from_user.id,
-            username=message.from_user.username,
-            chat_id=message.chat.id,
-        )
-
-    except Exception as e:
-        print(f"Default response error: {str(e)}")
-        await logger.log_message(
-            action="Default Response Error",
-            user_id=message.from_user.id,
-            username=message.from_user.username,
-            chat_id=message.chat.id,
-            error=e
-        )
 
 async def process_backdrops(client, user_id: int, title_data: dict, images_data: dict) -> None:
     """Process and send backdrop images to appropriate channels"""
