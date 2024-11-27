@@ -221,17 +221,21 @@ def create_inline_movie_results(movies):
         # Create description text
         description = f"{overview[:100]}..." if len(overview) > 100 else overview
         
-        # Create the result article with callback_data directly in the article
+        # Create the result article
         results.append(
             InlineQueryResultArticle(
-                id=str(movie['id']),  # Use movie ID as the result ID
                 title=f"{title} ({year})",
                 description=description,
                 thumb_url=thumb_url,
                 input_message_content=InputTextMessageContent(
-                    message_text="🎬 Fetching movie details..."  # Temporary message
+                    f"/cm {title}"  # Use existing caption command
                 ),
-                callback_data=f"title_{movie['id']}_movie"  # This will trigger the movie post creation
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton(
+                        "🎬 Get Movie Post",
+                        callback_data=f"title_{movie['id']}_movie"
+                    )
+                ]])
             )
         )
     return results
