@@ -7,7 +7,6 @@ from pyrogram.types import (
         InlineQueryResultArticle, 
         InputTextMessageContent
 )
-from urllib.parse import quote
 from pyrogram.enums import ParseMode
 import asyncio
 from io import BytesIO
@@ -206,6 +205,37 @@ def format_series_caption(movie, year, audio, language, genre, imdb_rating, runT
 
     return caption
 
+def create_inline_movie_results(movies):
+    """Create a list of InlineQueryResultArticle from movie data"""
+    results = []
+    for movie in movies:
+        # Get basic movie info
+        title = movie.get('title', 'N/A')
+        year = movie.get('release_date', '')[:4] if movie.get('release_date') else 'N/A'
+        overview = movie.get('overview', 'No overview available')
+        poster_path = movie.get('poster_path')
+        
+        # Create thumbnail URL if poster exists
+        thumb_url = f"https://image.tmdb.org/t/p/w200{poster_path}" if poster_path else None
+        
+        # Create description text
+        description = f"{overview[:100]}..." if len(overview) > 100 else overview
+        
+        # Create the result article with callback_data directly in the article
+        results.append(
+            InlineQueryResultArticle(
+                id=str(movie['id']),  # Use movie ID as the result ID
+                title=f"{title} ({year})",
+                description=description,
+                thumb_url=thumb_url,
+                input_message_content=InputTextMessageContent(
+                    message_text="🎬 Fetching movie details..."  # Temporary message
+                ),
+                callback_data=f"title_{movie['id']}_movie"  # This will trigger the movie post creation
+            )
+        )
+    return results
+
 @espada.on_message(filters.command(["start"]))
 async def start_command(client, message):
     try:
@@ -397,100 +427,66 @@ async def upcoming_command(client, message):
         await message.reply_text("An error occurred while fetching upcoming content.")
         print(f"Upcoming command error: {str(e)}")
 
-
 @espada.on_inline_query()
-async def inline_query(client, inline_query):
+async def inline_query_handler(client, query):
     try:
-        query = inline_query.query
-        if len(query) < 2:
-            return
-            
-        # Search for movies and TV shows
-        results = []
+        # Get the search text
+        search_text = query.query.strip()
         
-        # Get movie results
-        movie_data = await tmdb.search_titles(query, "movie")
-        tv_data = await tmdb.search_titles(query, "tv")
-        
-        all_results = []
-        
-        # Process movie results
-        for item in movie_data[:15]:  # Limit to 15 movies
-            year = item.get('release_date', '')[:4] if item.get('release_date') else 'N/A'
-            title = item.get('title', '')
-            overview = item.get('overview', '')[:200] + '...' if item.get('overview') else 'No overview available'
-            poster_path = item.get('poster_path')
-            
-            thumb_url = f"https://image.tmdb.org/t/p/w200{poster_path}" if poster_path else None
-            
-            all_results.append({
-                'id': str(item.get('id')),
-                'title': f"{title} ({year})",
-                'description': overview,
-                'thumb_url': thumb_url,
-                'type': 'movie'
-            })
-            
-        # Process TV results    
-        for item in tv_data[:15]:  # Limit to 15 TV shows
-            year = item.get('first_air_date', '')[:4] if item.get('first_air_date') else 'N/A'
-            title = item.get('name', '')
-            overview = item.get('overview', '')[:200] + '...' if item.get('overview') else 'No overview available'
-            poster_path = item.get('poster_path')
-            
-            thumb_url = f"https://image.tmdb.org/t/p/w200{poster_path}" if poster_path else None
-            
-            all_results.append({
-                'id': str(item.get('id')),
-                'title': f"{title} ({year})",
-                'description': overview,
-                'thumb_url': thumb_url,
-                'type': 'tv'
-            })
-
-        # Create inline results
-        for idx, item in enumerate(all_results):
-            icon = "🎬" if item['type'] == 'movie' else "📺"
-            results.append(
-                InlineQueryResultArticle(
-                    id=str(idx),
-                    title=f"{icon} {item['title']}",
-                    description=item['description'],
-                    thumb_url=item['thumb_url'],
-                    input_message_content=InputTextMessageContent(
-                        message_text=f"Fetching details for {item['title']}..."
-                    ),
-                    reply_markup=InlineKeyboardMarkup([[
-                        InlineKeyboardButton(
-                            "Generating Post...",
-                            callback_data=f"title_{item['id']}_{item['type']}"
-                        )
-                    ]])
-                )
+        if len(search_text) < 2:
+            # Show a tip if search text is too short
+            return await query.answer(
+                results=[],
+                switch_pm_text="Type at least 2 characters to search movies...",
+                switch_pm_parameter="inline_help",
+                cache_time=0
             )
         
-        await inline_query.answer(
+        # Search for movies using existing TMDB function
+        movies = await tmdb.search_titles(search_text, "movie")
+        
+        if not movies:
+            # No results found
+            return await query.answer(
+                results=[],
+                switch_pm_text="No movies found! Try different keywords...",
+                switch_pm_parameter="no_results",
+                cache_time=300
+            )
+        
+        # Create inline results
+        results = create_inline_movie_results(movies[:50])  # Limit to 50 results
+        
+        # Answer the inline query
+        await query.answer(
             results=results,
-            cache_time=300
+            cache_time=300,  # Cache results for 5 minutes
+            switch_pm_text="Click here for more options",
+            switch_pm_parameter="from_inline"
+        )
+        
+        # Log the inline query
+        await logger.log_message(
+            action="Inline Query",
+            user_id=query.from_user.id,
+            username=query.from_user.username,
+            query=search_text
         )
         
     except Exception as e:
         print(f"Inline query error: {str(e)}")
-        # Return an error result
-        error_result = InlineQueryResultArticle(
-            id="error",
-            title="❌ Error occurred",
-            description="Please try again later",
-            input_message_content=InputTextMessageContent("An error occurred while searching. Please try again later.")
+        # Show error to user
+        await query.answer(
+            results=[],
+            switch_pm_text="An error occurred! Try again...",
+            switch_pm_parameter="error",
+            cache_time=0
         )
-        await inline_query.answer([error_result], cache_time=0)
-        
 
 @espada.on_callback_query()
 async def callback_query(client, callback_query: CallbackQuery):
     try:
         data = callback_query.data
-        message = callback_query.message
         
         if "_page_" in data:
             category, _, page = data.split("_")
@@ -524,11 +520,7 @@ async def callback_query(client, callback_query: CallbackQuery):
                 await callback_query.message.edit_text("No content found for this page.")
         
         elif data.startswith("title_"):
-            if message and message.text and "Fetching details for" in message.text:
-                try:
-                    await message.delete()
-                except Exception as delete_error:
-                    print(f"Error deleting message: {str(delete_error)}")
+            # Parse the callback data correctly
             parts = data.split("_")
             if len(parts) >= 3:
                 tmdb_id = parts[1]
@@ -749,6 +741,30 @@ async def set_dump_channel(client, message):
     except Exception as e:
         await message.reply_text("An error occurred while setting dump channel.")
         print(f"Set dump channel error: {str(e)}") 
+        
+@espada.on_message(~filters.command(["start", "captionM", "cm","captionS", "cs"]) & ~filters.channel & ~filters.group)
+async def default_response(client, message):
+    try:
+        
+        await message.reply_text("⚠ Invaild command!")
+
+        # Log the default response
+        await logger.log_message(
+            action="Default Response",
+            user_id=message.from_user.id,
+            username=message.from_user.username,
+            chat_id=message.chat.id,
+        )
+
+    except Exception as e:
+        print(f"Default response error: {str(e)}")
+        await logger.log_message(
+            action="Default Response Error",
+            user_id=message.from_user.id,
+            username=message.from_user.username,
+            chat_id=message.chat.id,
+            error=e
+        )
 
 async def process_backdrops(client, user_id: int, title_data: dict, images_data: dict) -> None:
     """Process and send backdrop images to appropriate channels"""
