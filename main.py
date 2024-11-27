@@ -2,7 +2,6 @@ from pyrogram import filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery,InputMediaPhoto
 from pyrogram.enums import ParseMode
 import asyncio
-import aiohttp
 from io import BytesIO
 import random
 #explicit module
@@ -15,9 +14,7 @@ from config import (espada,
         log_channel, 
         tmdb_api_token, 
         omdb_api, 
-        TMDB_BASE_URL,
-        DUMP_CHANNELS,
-        TMDB_HEADERS
+        DUMP_CHANNELS
 )
 from handlers.tmdb import tmdbFunctions
 from handlers.download import downloadHandler
@@ -78,14 +75,6 @@ def create_content_list_keyboard(results, page, total_pages, command_type):
 
 
 def determine_audio(movie_details):
-    """
-    Determine audio language/type based on available information
-    
-    Args:
-        movie_details (dict): Movie details from Rapid API
-    Returns:
-        str: Audio language/type
-    """
     
     audio_options = [
         'Hindi-English',
