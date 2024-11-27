@@ -206,14 +206,15 @@ def format_series_caption(movie, year, audio, language, genre, imdb_rating, runT
     return caption
 
 def create_inline_movie_results(movies):
-    """Create a list of InlineQueryResultArticle from movie data"""
+    """Create a list of InlineQueryResultArticle from movie and TV show data"""
     results = []
-    for movie in movies:
-        # Get basic movie info
-        title = movie.get('title', 'N/A')
-        year = movie.get('release_date', '')[:4] if movie.get('release_date') else 'N/A'
-        overview = movie.get('overview', 'No overview available')
-        poster_path = movie.get('poster_path')
+    for item in movies:
+        # Get basic info
+        title = item.get('title') or item.get('name', 'N/A')
+        year = (item.get('release_date') or item.get('first_air_date', ''))[:4] if (item.get('release_date') or item.get('first_air_date')) else 'N/A'
+        overview = item.get('overview', 'No overview available')
+        poster_path = item.get('poster_path')
+        media_type = item.get('media_type', 'movie')  # Default to movie if not specified
         
         # Create thumbnail URL if poster exists
         thumb_url = f"https://image.tmdb.org/t/p/w200{poster_path}" if poster_path else None
@@ -221,6 +222,41 @@ def create_inline_movie_results(movies):
         # Create description text
         description = f"{overview[:100]}..." if len(overview) > 100 else overview
         
+        # Format the caption based on media type
+        if media_type == 'tv':
+            caption = format_series_caption(
+                movie=title,
+                year=year,
+                audio='Multi',
+                language=item.get('original_language', 'N/A'),
+                genre=', '.join([genre['name'] for genre in item.get('genres', [])]) if item.get('genres') else 'N/A',
+                imdb_rating='N/A',  # Will be fetched in detail view
+                runTime='N/A',      # Will be fetched in detail view
+                totalSeason='N/A',   # Will be fetched in detail view
+                type='TV Series',
+                synopsis=overview
+            )
+            additional_text = f"""[PirecyKings2] [Sseason Eepisode] {title} ({year}) @pirecykings2
+
+S01 English - Hindi [480p]
+S01 English - Hindi [720p]
+S01 English - Hindi [1080p]"""
+        else:
+            caption = format_caption(
+                movie=title,
+                year=year,
+                audio='Multi',
+                language=item.get('original_language', 'N/A'),
+                genre=', '.join([genre['name'] for genre in item.get('genres', [])]) if item.get('genres') else 'N/A',
+                imdb_rating='N/A',  # Will be fetched in detail view
+                runTime='N/A',      # Will be fetched in detail view
+                rated='U/A',
+                synopsis=overview
+            )
+            additional_text = f"""[PirecyKings2] {title} ({year}) @pirecykings2
+
+{title} ({year}) 480p - 1080p [Multi]"""
+
         # Create the result article
         results.append(
             InlineQueryResultArticle(
@@ -228,14 +264,9 @@ def create_inline_movie_results(movies):
                 description=description,
                 thumb_url=thumb_url,
                 input_message_content=InputTextMessageContent(
-                    f"/cm {title}"  # Use existing caption command
-                ),
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton(
-                        "🎬 Get Movie Post",
-                        callback_data=f"title_{movie['id']}_movie"
-                    )
-                ]])
+                    message_text=caption + "\n\n" + additional_text,
+                    parse_mode=ParseMode.MARKDOWN
+                )
             )
         )
     return results
@@ -434,52 +465,51 @@ async def upcoming_command(client, message):
 @espada.on_inline_query()
 async def inline_query_handler(client, query):
     try:
-        # Get the search text
         search_text = query.query.strip()
         
         if len(search_text) < 2:
-            # Show a tip if search text is too short
             return await query.answer(
                 results=[],
-                switch_pm_text="Type at least 2 characters to search movies...",
+                switch_pm_text="Type at least 2 characters to search...",
                 switch_pm_parameter="inline_help",
                 cache_time=0
             )
         
-        # Search for movies using existing TMDB function
+        # Search for both movies and TV shows
         movies = await tmdb.search_titles(search_text, "movie")
+        tv_shows = await tmdb.search_titles(search_text, "tv")
         
-        if not movies:
-            # No results found
+        # Combine and sort results by popularity
+        combined_results = []
+        for item in movies:
+            item['media_type'] = 'movie'
+            combined_results.append(item)
+        for item in tv_shows:
+            item['media_type'] = 'tv'
+            combined_results.append(item)
+            
+        combined_results.sort(key=lambda x: x.get('popularity', 0), reverse=True)
+        
+        if not combined_results:
             return await query.answer(
                 results=[],
-                switch_pm_text="No movies found! Try different keywords...",
+                switch_pm_text="No results found! Try different keywords...",
                 switch_pm_parameter="no_results",
                 cache_time=300
             )
         
         # Create inline results
-        results = create_inline_movie_results(movies[:50])  # Limit to 50 results
+        results = create_inline_movie_results(combined_results[:50])  # Limit to 50 results
         
-        # Answer the inline query
         await query.answer(
             results=results,
-            cache_time=300,  # Cache results for 5 minutes
+            cache_time=300,
             switch_pm_text="Click here for more options",
             switch_pm_parameter="from_inline"
         )
         
-        # Log the inline query
-        await logger.log_message(
-            action="Inline Query",
-            user_id=query.from_user.id,
-            username=query.from_user.username,
-            query=search_text
-        )
-        
     except Exception as e:
         print(f"Inline query error: {str(e)}")
-        # Show error to user
         await query.answer(
             results=[],
             switch_pm_text="An error occurred! Try again...",
