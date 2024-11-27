@@ -1,4 +1,4 @@
-from ..config import omdb_api
+from config import omdb_api
 import aiohttp
 
 
