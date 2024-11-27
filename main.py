@@ -524,8 +524,11 @@ async def callback_query(client, callback_query: CallbackQuery):
                 await callback_query.message.edit_text("No content found for this page.")
         
         elif data.startswith("title_"):
-            if message.text and "Fetching details for" in message.text:
-                await message.delete()
+            if message and message.text and "Fetching details for" in message.text:
+                try:
+                    await message.delete()
+                except Exception as delete_error:
+                    print(f"Error deleting message: {str(delete_error)}")
             parts = data.split("_")
             if len(parts) >= 3:
                 tmdb_id = parts[1]
