@@ -1,132 +1,108 @@
 from pyrogram import filters
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery,InputMediaPhoto
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, InputMediaPhoto
 from pyrogram.enums import ParseMode
 import asyncio
 from io import BytesIO
 import random
-#explicit module
 from plugins.logs import Logger
 from script import START_TEXT, HELP_TEXT, SUPPORT_TEXT, ABOUT_TEXT, MOVIE_TEXT
 from buttons.startButton import start_keyboard
-from config import (espada, 
-        api_hash, 
-        api_id, bot_token, 
-        log_channel, 
-        tmdb_api_token, 
-        omdb_api, 
-        DUMP_CHANNELS
+from config import (
+    espada,
+    api_hash,
+    api_id,
+    bot_token,
+    log_channel,
+    tmdb_api_token,
+    omdb_api,
+    DUMP_CHANNELS,
 )
 from handlers.tmdb import tmdbFunctions
 from handlers.download import downloadHandler
-
 
 if not all([api_id, api_hash, bot_token, log_channel, tmdb_api_token, omdb_api]):
     raise ValueError("Please set environment variables correctly")
 
 logger = Logger(espada)
-OMDB_API_KEY= omdb_api
+OMDB_API_KEY = omdb_api
 TMDB_API_KEY = tmdb_api_token
 
 tmdb = tmdbFunctions()
 download = downloadHandler()
 
+
 def create_content_list_keyboard(results, page, total_pages, command_type):
-    """Create keyboard for content listings with pagination"""
     buttons = []
-    
-    # Add content buttons
     for item in results:
-        title = item.get('title') or item.get('name')
-        release_date = item.get('release_date') or item.get('first_air_date', '')
-        year = release_date[:4] if release_date else 'N/A'
-        
-        # Determine media type correctly
-        if 'first_air_date' in item:
-            media_type = 'tv'
-        elif 'release_date' in item:
-            media_type = 'movie'
+        title = item.get("title") or item.get("name")
+        release_date = item.get("release_date") or item.get("first_air_date", "")
+        year = release_date[:4] if release_date else "N/A"
+        if "first_air_date" in item:
+            media_type = "tv"
+        elif "release_date" in item:
+            media_type = "movie"
         else:
-            media_type = item.get('media_type', 'movie')
-        
+            media_type = item.get("media_type", "movie")
         text = f"{title} ({year})"
         callback_data = f"title_{item['id']}_{media_type}"
         buttons.append([InlineKeyboardButton(text, callback_data=callback_data)])
-    
-    # Add pagination buttons
     nav_buttons = []
     if page > 1:
-        nav_buttons.append(InlineKeyboardButton(
-            "⬅️ Previous",
-            callback_data=f"{command_type}_page_{page-1}"
-        ))
+        nav_buttons.append(
+            InlineKeyboardButton(
+                "⬅️ Previous", callback_data=f"{command_type}_page_{page-1}"
+            )
+        )
     if page < total_pages:
-        nav_buttons.append(InlineKeyboardButton(
-            "Next ➡️",
-            callback_data=f"{command_type}_page_{page+1}"
-        ))
-    
+        nav_buttons.append(
+            InlineKeyboardButton("Next ➡️", callback_data=f"{command_type}_page_{page+1}")
+        )
     if nav_buttons:
         buttons.append(nav_buttons)
-    
-    # Add home button
     buttons.append([InlineKeyboardButton("❌ Cancel", callback_data="cancel_search")])
-    
     return InlineKeyboardMarkup(buttons)
 
 
 def determine_audio(movie_details):
-    
     audio_options = [
-        'Hindi-English',
-        'Hindi',
-        'Multi-Audio',
-        'Hindi Dubbed',
-        'English Dubbed'
-    ] 
+        "Hindi-English",
+        "Hindi",
+        "Multi-Audio",
+        "Hindi Dubbed",
+        "English Dubbed",
+    ]
+    actors = str(movie_details.get("Actors", "")).lower()
+    plot = str(movie_details.get("Plot", "")).lower()
+    country = str(movie_details.get("Country", "")).lower()
+    language = str(movie_details.get("Language", "")).lower()
     
-    # Safely get values and convert to lowercase, using empty string if not found
-    actors = str(movie_details.get('Actors', '')).lower()
-    plot = str(movie_details.get('Plot', '')).lower()
-    country = str(movie_details.get('Country', '')).lower()
-    language = str(movie_details.get('Language', '')).lower()
-    
-    # Check for Hindi content
-    if 'india' in country or 'hindi' in language:
-        return 'Hindi'
-    
-    if 'hindi' in actors or 'hindi' in plot:
-        return 'Hindi'
-    
-    # Check for English content
-    if 'usa' in country or 'uk' in country or 'english' in language:
-        return 'Hindi-English'
-    
-    if 'english' in actors or 'english' in plot:
-        return 'Hindi-English'
-    
-    # Default behavior for other cases
-    if country and country not in ['usa', 'uk', 'india']:
-        if random.random() < 0.7:  
-            return 'Multi-Audio'
+    if "india" in country or "hindi" in language:
+        return "Hindi"
+    if "hindi" in actors or "hindi" in plot:
+        return "Hindi"
+    if "usa" in country or "uk" in country or "english" in language:
+        return "Hindi-English"
+    if "english" in actors or "english" in plot:
+        return "Hindi-English"
+    if country and country not in ["usa", "uk", "india"]:
+        if random.random() < 0.7:
+            return "Multi-Audio"
         else:
-            return 'Hindi Dubbed'
-    
-    # Use weighted random choice if no specific criteria met
+            return "Hindi Dubbed"
     weights = [0.3, 0.2, 0.3, 0.1, 0.1]
     return random.choices(audio_options, weights=weights)[0]
 
+
 def format_caption(movie, year, audio, language, genre, imdb_rating, runTime, rated, synopsis):
-    """Format the caption with Markdown"""
-    
-    
-    audio = determine_audio({
-        "Language": language,
-        "Genre": genre,
-        "Actors": "",
-        "Plot": synopsis,
-        "Country": ""
-    })
-    
+    audio = determine_audio(
+        {
+            "Language": language,
+            "Genre": genre,
+            "Actors": "",
+            "Plot": synopsis,
+            "Country": "",
+        }
+    )
     try:
         if rated == "Not Rated":
             CertificateRating = "U/A"
@@ -134,22 +110,19 @@ def format_caption(movie, year, audio, language, genre, imdb_rating, runTime, ra
             CertificateRating = rated
     except Exception as e:
         CertificateRating = rated
-        
     try:
-        # Extract the number from the "Runtime" string (e.g., "57 min")
-        minutes = int(runTime.split()[0])  # Get the numeric part
+        minutes = int(runTime.split()[0])
         if minutes > 60:
             hours = minutes // 60
             remaining_minutes = minutes % 60
             formatted_runtime = f"{hours}h {remaining_minutes}min"
-        elif minutes==60:
+        elif minutes == 60:
             hours = minutes // 60
             formatted_runtime = f"{hours}h"
         else:
             formatted_runtime = runTime
     except (ValueError, IndexError):
-        formatted_runtime = runTime  # Use the raw value if parsing fails
-    
+        formatted_runtime = runTime
     caption = f""" {movie}（{year}）
     
 » 𝗔𝘂𝗱𝗶𝗼: {audio}（Esub）
@@ -906,7 +879,6 @@ async def start_bot():
         print("Bot Started Successfully!")
 
         while True:
-            # Check if the client is still connected every 10 seconds
             if not espada.is_connected:
                 await espada.reconnect()
             await asyncio.sleep(10)
@@ -915,7 +887,7 @@ async def start_bot():
         print(f"Bot Crashed: {str(e)}")
         await logger.log_bot_crash(e)
     finally:
-        if espada.is_connected:  # Check if client is still connected before stopping
+        if espada.is_connected:  
             await espada.stop()
             
 if __name__ == "__main__":
