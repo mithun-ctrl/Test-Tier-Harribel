@@ -1,7 +1,5 @@
-from ..config import omdb_api, TMDB_BASE_URL, tmdb_api_token
+from ..config import omdb_api
 import aiohttp
-
-TMDB_API_KEY = tmdb_api_token
 
 
 class tmdbHelpers:
