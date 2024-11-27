@@ -5,10 +5,13 @@ import asyncio
 import aiohttp
 from typing import Dict
 from io import BytesIO
+import random
+#explicit module
 from plugins.logs import Logger
 from script import START_TEXT, HELP_TEXT, SUPPORT_TEXT, ABOUT_TEXT, MOVIE_TEXT
-import random
+from buttons.startButton import start_keyboard
 from config import espada, api_hash, api_id, bot_token, log_channel, api_token, omdb_api
+
 
 if not all([api_id, api_hash, bot_token, log_channel, api_token, api_token, omdb_api]):
     raise ValueError("Please set environment variables correctly")
@@ -24,15 +27,7 @@ TMDB_HEADERS = {
     "Authorization": f"Bearer {TMDB_API_KEY}"
 }
 
-start_keyboard = InlineKeyboardMarkup([
-    [InlineKeyboardButton("🏠 Home", callback_data="home"),
-     InlineKeyboardButton("🤖 About", callback_data="about")],
-    [InlineKeyboardButton("💬 Support", callback_data="support"),
-     InlineKeyboardButton("ℹ️ Help", callback_data="help")],
-    [InlineKeyboardButton("🎬 MoAni Hub", callback_data="movie_anime_hub"),
-     InlineKeyboardButton("🙅‍♂️ Close", callback_data="close")
-     ]
-])
+
 
 async def get_imdb_rating(imdb_id):
     """
