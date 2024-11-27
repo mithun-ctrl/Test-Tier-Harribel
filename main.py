@@ -3,31 +3,29 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQ
 from pyrogram.enums import ParseMode
 import asyncio
 import aiohttp
-from typing import Dict
 from io import BytesIO
 import random
 #explicit module
 from plugins.logs import Logger
 from script import START_TEXT, HELP_TEXT, SUPPORT_TEXT, ABOUT_TEXT, MOVIE_TEXT
 from buttons.startButton import start_keyboard
-from config import espada, api_hash, api_id, bot_token, log_channel, api_token, omdb_api
+from config import (espada, 
+        api_hash, 
+        api_id, bot_token, 
+        log_channel, 
+        tmdb_api_token, 
+        omdb_api, 
+        TMDB_BASE_URL,
+        DUMP_CHANNELS,
+        TMDB_HEADERS
+)
 
-
-if not all([api_id, api_hash, bot_token, log_channel, api_token, api_token, omdb_api]):
+if not all([api_id, api_hash, bot_token, log_channel, tmdb_api_token, omdb_api]):
     raise ValueError("Please set environment variables correctly")
 
 logger = Logger(espada)
 OMDB_API_KEY= omdb_api
-DUMP_CHANNELS: Dict[int, int] = {}
-
-TMDB_BASE_URL = "https://api.themoviedb.org/3"
-TMDB_API_KEY = api_token
-TMDB_HEADERS = {
-    "accept": "application/json",
-    "Authorization": f"Bearer {TMDB_API_KEY}"
-}
-
-
+TMDB_API_KEY = tmdb_api_token
 
 async def get_imdb_rating(imdb_id):
     """
