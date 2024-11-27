@@ -20,6 +20,7 @@ from config import (espada,
         TMDB_HEADERS
 )
 from handlers.tmdb import tmdbFunctions
+from handlers.download import downloadHandler
 
 
 if not all([api_id, api_hash, bot_token, log_channel, tmdb_api_token, omdb_api]):
@@ -30,35 +31,7 @@ OMDB_API_KEY= omdb_api
 TMDB_API_KEY = tmdb_api_token
 
 tmdb = tmdbFunctions()
-
-async def get_similar_titles(tmdb_id, media_type="movie"):
-    """Get similar movies/TV shows"""
-    endpoint = f"{media_type}/{tmdb_id}/similar"
-    params = {"page": 1}
-    return await tmdb.get_tmdb_data(endpoint, params)
-
-async def get_images(tmdb_id, media_type="movie"):
-    """Get additional images for a title"""
-    endpoint = f"{media_type}/{tmdb_id}/images"
-    return await tmdb.get_tmdb_data(endpoint)
-
-async def get_trending_content(media_type="all", time_window="week", page=1):
-    """Get trending movies/TV shows"""
-    endpoint = f"trending/{media_type}/{time_window}"
-    params = {"page": page}
-    return await tmdb.get_tmdb_data(endpoint, params)
-
-async def get_popular_content(media_type="movie", page=1):
-    """Get popular movies/TV shows"""
-    endpoint = f"{media_type}/popular"
-    params = {"page": page}
-    return await tmdb.get_tmdb_data(endpoint, params)
-
-async def get_upcoming_content(page=1):
-    """Get upcoming movies"""
-    endpoint = "movie/upcoming"
-    params = {"page": page}
-    return await tmdb.get_tmdb_data(endpoint, params)
+download = downloadHandler()
 
 def create_content_list_keyboard(results, page, total_pages, command_type):
     """Create keyboard for content listings with pagination"""
@@ -103,23 +76,6 @@ def create_content_list_keyboard(results, page, total_pages, command_type):
     
     return InlineKeyboardMarkup(buttons)
 
-
-async def download_image(url):
-    """Download image from URL"""
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            if response.status == 200:
-                return await response.read()
-    return None
-
-async def download_poster(poster_url):
-    """Download movie poster from URL"""
-    if poster_url and poster_url != 'N/A':
-        async with aiohttp.ClientSession() as session:
-            async with session.get(poster_url) as response:
-                if response.status == 200:
-                    return await response.read()
-    return None
 
 def determine_audio(movie_details):
     """
@@ -288,7 +244,7 @@ async def start_command(client, message):
         loading_message = await message.reply_text("Loading... Please wait ⌛")
         
         # Attempt to download and send the start image
-        start_image = await download_image("https://jpcdn.it/img/small/682f656e6957597eebce76a1b99ea9e4.jpg")
+        start_image = await download.download_image("https://jpcdn.it/img/small/682f656e6957597eebce76a1b99ea9e4.jpg")
         if start_image:
             # Convert image data to BytesIO
             image_stream = BytesIO(start_image)
@@ -354,7 +310,7 @@ async def trending_command(client, message):
         status_message = await message.reply_text("Fetching trending content... Please wait!")
         
         # Get trending content
-        trending_data = await get_trending_content(page=page)
+        trending_data = await tmdb.get_trending_content(page=page)
         
         if not trending_data or not trending_data.get('results'):
             await status_message.edit_text("No trending content found.")
@@ -397,7 +353,7 @@ async def popular_command(client, message):
         status_message = await message.reply_text("Fetching popular content... Please wait!")
         
         # Get popular content
-        popular_data = await get_popular_content(page=page)
+        popular_data = await tmdb.get_popular_content(page=page)
         
         if not popular_data or not popular_data.get('results'):
             await status_message.edit_text("No popular content found.")
@@ -441,7 +397,7 @@ async def upcoming_command(client, message):
         status_message = await message.reply_text("Fetching upcoming content... Please wait!")
         
         # Get upcoming content
-        upcoming_data = await get_upcoming_content(page=page)
+        upcoming_data = await tmdb.get_upcoming_content(page=page)
         
         if not upcoming_data or not upcoming_data.get('results'):
             await status_message.edit_text("No upcoming content found.")
@@ -485,13 +441,13 @@ async def callback_query(client, callback_query: CallbackQuery):
             await callback_query.message.edit_text("Loading next page... Please wait!")
             
             if category == "trending":
-                content = await get_trending_content(page=page)
+                content = await tmdb.get_trending_content(page=page)
                 title = "📈 Trending Movies & TV Shows"
             elif category == "popular":
-                content = await get_popular_content(page=page)
+                content = await tmdb.get_popular_content(page=page)
                 title = "🔥 Popular Movies"
             elif category == "upcoming":
-                content = await get_upcoming_content(page=page)
+                content = await tmdb.get_upcoming_content(page=page)
                 title = "🆕 Upcoming Movies"
             
             if content and content.get('results'):
@@ -803,8 +759,8 @@ async def process_title_selection(callback_query: CallbackQuery, tmdb_id: str, m
 
         # Get detailed information
         title_data = await tmdb.get_title_details(tmdb_id, media_type)
-        similar_data = await get_similar_titles(tmdb_id, media_type)
-        images_data = await get_images(tmdb_id, media_type)
+        similar_data = await tmdb.get_similar_titles(tmdb_id, media_type)
+        images_data = await tmdb.get_images(tmdb_id, media_type)
 
         if not title_data:
             await loading_msg.edit_text("Failed to fetch title details. Please try again.")

@@ -80,3 +80,32 @@ class tmdbFunctions:
         except Exception as e:
             print(f"Error getting title details: {str(e)}")
             return None
+    
+    async def get_similar_titles(self, tmdb_id, media_type="movie"):
+        """Get similar movies/TV shows"""
+        endpoint = f"{media_type}/{tmdb_id}/similar"
+        params = {"page": 1}
+        return await self.get_tmdb_data(endpoint, params)
+
+    async def get_images(self, tmdb_id, media_type="movie"):
+        """Get additional images for a title"""
+        endpoint = f"{media_type}/{tmdb_id}/images"
+        return await self.get_tmdb_data(endpoint)
+
+    async def get_trending_content(self, media_type="all", time_window="week", page=1):
+        """Get trending movies/TV shows"""
+        endpoint = f"trending/{media_type}/{time_window}"
+        params = {"page": page}
+        return await self.get_tmdb_data(endpoint, params)
+
+    async def get_popular_content(self, media_type="movie", page=1):
+        """Get popular movies/TV shows"""
+        endpoint = f"{media_type}/popular"
+        params = {"page": page}
+        return await self.get_tmdb_data(endpoint, params)
+
+    async def get_upcoming_content(self, page=1):
+        """Get upcoming movies"""
+        endpoint = "movie/upcoming"
+        params = {"page": page}
+        return await self.get_tmdb_data(endpoint, params)
