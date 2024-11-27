@@ -1,5 +1,12 @@
 from pyrogram import filters
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, InputMediaPhoto
+from pyrogram.types import ( 
+        InlineKeyboardMarkup, 
+        InlineKeyboardButton, 
+        CallbackQuery, 
+        InputMediaPhoto, 
+        InlineQueryResultArticle, 
+        InputTextMessageContent
+)
 from pyrogram.enums import ParseMode
 import asyncio
 from io import BytesIO
@@ -198,6 +205,40 @@ def format_series_caption(movie, year, audio, language, genre, imdb_rating, runT
 
     return caption
 
+def create_inline_movie_results(movies):
+    """Create a list of InlineQueryResultArticle from movie data"""
+    results = []
+    for movie in movies:
+        # Get basic movie info
+        title = movie.get('title', 'N/A')
+        year = movie.get('release_date', '')[:4] if movie.get('release_date') else 'N/A'
+        overview = movie.get('overview', 'No overview available')
+        poster_path = movie.get('poster_path')
+        
+        # Create thumbnail URL if poster exists
+        thumb_url = f"https://image.tmdb.org/t/p/w200{poster_path}" if poster_path else None
+        
+        # Create description text
+        description = f"{overview[:100]}..." if len(overview) > 100 else overview
+        
+        # Create the result article
+        results.append(
+            InlineQueryResultArticle(
+                title=f"{title} ({year})",
+                description=description,
+                thumb_url=thumb_url,
+                input_message_content=InputTextMessageContent(
+                    f"/cm {title}"  # Use existing caption command
+                ),
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton(
+                        "🎬 Get Movie Post",
+                        callback_data=f"title_{movie['id']}_movie"
+                    )
+                ]])
+            )
+        )
+    return results
 
 @espada.on_message(filters.command(["start"]))
 async def start_command(client, message):
@@ -389,6 +430,62 @@ async def upcoming_command(client, message):
     except Exception as e:
         await message.reply_text("An error occurred while fetching upcoming content.")
         print(f"Upcoming command error: {str(e)}")
+
+@espada.on_inline_query()
+async def inline_query_handler(client, query):
+    try:
+        # Get the search text
+        search_text = query.query.strip()
+        
+        if len(search_text) < 2:
+            # Show a tip if search text is too short
+            return await query.answer(
+                results=[],
+                switch_pm_text="Type at least 2 characters to search movies...",
+                switch_pm_parameter="inline_help",
+                cache_time=0
+            )
+        
+        # Search for movies using existing TMDB function
+        movies = await tmdb.search_titles(search_text, "movie")
+        
+        if not movies:
+            # No results found
+            return await query.answer(
+                results=[],
+                switch_pm_text="No movies found! Try different keywords...",
+                switch_pm_parameter="no_results",
+                cache_time=300
+            )
+        
+        # Create inline results
+        results = create_inline_movie_results(movies[:50])  # Limit to 50 results
+        
+        # Answer the inline query
+        await query.answer(
+            results=results,
+            cache_time=300,  # Cache results for 5 minutes
+            switch_pm_text="Click here for more options",
+            switch_pm_parameter="from_inline"
+        )
+        
+        # Log the inline query
+        await logger.log_message(
+            action="Inline Query",
+            user_id=query.from_user.id,
+            username=query.from_user.username,
+            query=search_text
+        )
+        
+    except Exception as e:
+        print(f"Inline query error: {str(e)}")
+        # Show error to user
+        await query.answer(
+            results=[],
+            switch_pm_text="An error occurred! Try again...",
+            switch_pm_parameter="error",
+            cache_time=0
+        )
 
 @espada.on_callback_query()
 async def callback_query(client, callback_query: CallbackQuery):
