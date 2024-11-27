@@ -750,7 +750,7 @@ async def set_dump_channel(client, message):
         await message.reply_text("An error occurred while setting dump channel.")
         print(f"Set dump channel error: {str(e)}") 
         
-@espada.on_message(~filters.command(["start", "captionM", "cm","captionS", "cs"]) & ~filters.channel & ~filters.group)
+@espada.on_message(~filters.command(["start", "captionM", "cm","captionS", "cs"]))
 async def default_response(client, message):
     try:
         
