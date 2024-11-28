@@ -204,30 +204,6 @@ def format_series_caption(movie, year, audio, language, genre, imdb_rating, runT
 
     return caption
 
-def create_inline_movie_results(movies):
-    """Create a list of InlineQueryResultArticle from movie data"""
-    results = []
-    for movie in movies:
-        title = movie.get('title', 'N/A')
-        year = movie.get('release_date', '')[:4] if movie.get('release_date') else 'N/A'
-        overview = movie.get('overview', 'No overview available')
-        poster_path = movie.get('poster_path')
-
-        thumb_url = f"https://image.tmdb.org/t/p/w200{poster_path}" if poster_path else None
-        description = f"{overview[:100]}..." if len(overview) > 100 else overview
-        
-        results.append(
-            InlineQueryResultArticle(
-                title=f"{title} ({year})",
-                description=description,
-                thumb_url=thumb_url,
-                input_message_content=InputTextMessageContent(
-                    f"/cm {title}"  # or an alternative command
-                )
-            )
-        )
-    return results
-
 
 @espada.on_message(filters.command(["start"]))
 async def start_command(client, message):
