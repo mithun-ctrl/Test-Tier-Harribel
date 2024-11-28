@@ -449,14 +449,8 @@ async def inline_query_handler(client, query):
                     description=description,
                     thumb_url=thumb_url,
                     input_message_content=InputTextMessageContent(
-                        message_text=f"Details for {title}"
-                    ),
-                    reply_markup=InlineKeyboardMarkup([[
-                        InlineKeyboardButton(
-                            "🎬 Get Post Details",
-                            callback_data=f"title_{item['id']}_{media_type}"
-                        )
-                    ]])
+                        message_text=f"!fetch {item['id']} {media_type}"
+                    )
                 )
             )
         
@@ -464,17 +458,17 @@ async def inline_query_handler(client, query):
         await query.answer(
             results=results,
             cache_time=300,  # Cache results for 5 minutes
-            switch_pm_text="Click on 'Get Post Details'",
+            switch_pm_text="Select a movie or TV show",
             switch_pm_parameter="from_inline"
         )
         
         # Log the inline query
         await logger.log_message(
-        action="Inline Query",
-        user_id=query.from_user.id,
-        username=query.from_user.username,
-        search_text=search_text  # Change 'query' to 'search_text'
-)
+            action="Inline Query",
+            user_id=query.from_user.id,
+            username=query.from_user.username,
+            search_text=search_text
+        )
         
     except Exception as e:
         print(f"Inline query error: {str(e)}")
@@ -659,7 +653,32 @@ async def caption_command(client, message):
     except Exception as e:
         await message.reply_text("An error occurred while processing your request. Please try again later.")
         print(f"Movie search error: {str(e)}")
+
+@espada.on_message(filters.text & filters.create(lambda _, __, message: message.text.startswith('!fetch')))
+async def fetch_title_details(client, message):
+    try:
+        parts = message.text.split()
+        if len(parts) != 3:
+            await message.reply_text("Invalid fetch format. Use '!fetch <tmdb_id> <media_type>'")
+            return
+
+        tmdb_id = parts[1]
+        media_type = parts[2]
+
+        # Create a mock CallbackQuery-like object
+        class MockCallbackQuery:
+            def __init__(self, message):
+                self.message = message
+                self.from_user = message.from_user
         
+        mock_callback = MockCallbackQuery(message)
+        
+        # Process the title selection
+        await process_title_selection(mock_callback, tmdb_id, media_type)
+
+    except Exception as e:
+        await message.reply_text("An error occurred while fetching details.")
+        print(f"Fetch title details error: {str(e)}")
         
 @espada.on_message(filters.command(["captionS", "cs"]))
 async def series_command(client, message):
