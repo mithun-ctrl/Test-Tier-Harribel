@@ -617,42 +617,6 @@ async def series_command(client, message):
     except Exception as e:
         await message.reply_text("An error occurred while processing your request. Please try again later.")
         print(f"Series search error: {str(e)}")
-        
-
-async def process_backdrops(client, user_id: int, title_data: dict, images_data: dict) -> None:
-    """Process and send backdrop images to appropriate channels"""
-    try:
-        if not images_data or not images_data.get('backdrops'):
-            return
-
-        title = title_data.get('title') or title_data.get('name', 'N/A')
-        year = (title_data.get('release_date') or title_data.get('first_air_date', 'N/A'))[:4]
-        
-        # Get first 3 backdrop images
-        backdrops = images_data['backdrops'][:3]
-        if not backdrops:
-            return
-            
-        backdrop_media = []
-        
-        # First backdrop with English text
-        if len(backdrops) > 0:
-            backdrop_path = backdrops[0].get('file_path')
-            if backdrop_path:
-                backdrop_url = f"https://image.tmdb.org/t/p/original{backdrop_path}"
-                caption = f"🎬 {title} ({year}) #English"
-                backdrop_media.append(InputMediaPhoto(media=backdrop_url, caption=caption))
-        
-        # Other backdrops without text
-        for backdrop in backdrops[1:]:
-            backdrop_path = backdrop.get('file_path')
-            if backdrop_path:
-                backdrop_url = f"https://image.tmdb.org/t/p/original{backdrop_path}"
-                caption = f"🎬 {title} ({year})"
-                backdrop_media.append(InputMediaPhoto(media=backdrop_url, caption=caption))
-            
-    except Exception as e:
-        print(f"Error processing backdrops: {str(e)}")
 
 async def process_title_selection(callback_query: CallbackQuery, tmdb_id: str, media_type: str = "movie") -> None:
     """Process the selected title and generate the appropriate caption with related content"""
@@ -731,14 +695,6 @@ async def process_title_selection(callback_query: CallbackQuery, tmdb_id: str, m
                 caption=caption,
                 parse_mode=ParseMode.MARKDOWN
             )
-
-        await process_backdrops(
-            client=callback_query.message._client,
-            user_id=callback_query.from_user.id,
-            title_data=title_data,
-            images_data=images_data
-        )
-
         await callback_query.message.reply_text(additional_message, parse_mode=ParseMode.MARKDOWN)
 
     except Exception as e:
