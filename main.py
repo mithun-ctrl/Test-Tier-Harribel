@@ -204,6 +204,40 @@ def format_series_caption(movie, year, audio, language, genre, imdb_rating, runT
 
     return caption
 
+def create_inline_movie_results(movies):
+    """Create a list of InlineQueryResultArticle from movie data"""
+    results = []
+    for movie in movies:
+        # Get basic movie info
+        title = movie.get('title', 'N/A')
+        year = movie.get('release_date', '')[:4] if movie.get('release_date') else 'N/A'
+        overview = movie.get('overview', 'No overview available')
+        poster_path = movie.get('poster_path')
+        
+        # Create thumbnail URL if poster exists
+        thumb_url = f"https://image.tmdb.org/t/p/w200{poster_path}" if poster_path else None
+        
+        # Create description text
+        description = f"{overview[:100]}..." if len(overview) > 100 else overview
+        
+        # Create the result article
+        results.append(
+            InlineQueryResultArticle(
+                title=f"{title} ({year})",
+                description=description,
+                thumb_url=thumb_url,
+                input_message_content=InputTextMessageContent(
+                    f"/cm {title}"  # Use existing caption command
+                ),
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton(
+                        "🎬 Get Movie Post",
+                        callback_data=f"title_{movie['id']}_movie"
+                    )
+                ]])
+            )
+        )
+    return results
 
 @espada.on_message(filters.command(["start"]))
 async def start_command(client, message):
@@ -411,54 +445,26 @@ async def inline_query_handler(client, query):
                 cache_time=0
             )
         
-        # Search for movies and TV shows
+        # Search for movies using existing TMDB function
         movies = await tmdb.search_titles(search_text, "movie")
-        tv_shows = await tmdb.search_titles(search_text, "tv")
         
-        # Combine and limit results
-        combined_results = movies[:25] + tv_shows[:25]
-        
-        if not combined_results:
+        if not movies:
             # No results found
             return await query.answer(
                 results=[],
-                switch_pm_text="No movies or series found! Try different keywords...",
+                switch_pm_text="No movies found! Try different keywords...",
                 switch_pm_parameter="no_results",
                 cache_time=300
             )
         
         # Create inline results
-        results = []
-        for item in combined_results:
-            # Determine media type and basic details
-            title = item.get('title') or item.get('name', 'N/A')
-            year = (item.get('release_date') or item.get('first_air_date', ''))[:4]
-            media_type = 'movie' if 'title' in item else 'tv'
-            overview = item.get('overview', 'No overview available')
-            poster_path = item.get('poster_path')
-            
-            # Create thumbnail URL if poster exists
-            thumb_url = f"https://image.tmdb.org/t/p/w200{poster_path}" if poster_path else None
-            
-            # Create description text
-            description = f"{overview[:100]}..." if len(overview) > 100 else overview
-            
-            results.append(
-                InlineQueryResultArticle(
-                    title=f"{title} ({year})",
-                    description=description,
-                    thumb_url=thumb_url,
-                    input_message_content=InputTextMessageContent(
-                        message_text=f"!fetch {item['id']} {media_type}"
-                    )
-                )
-            )
+        results = create_inline_movie_results(movies[:50])  # Limit to 50 results
         
         # Answer the inline query
         await query.answer(
             results=results,
             cache_time=300,  # Cache results for 5 minutes
-            switch_pm_text="Select a movie or TV show",
+            switch_pm_text="Click here for more options",
             switch_pm_parameter="from_inline"
         )
         
@@ -467,7 +473,7 @@ async def inline_query_handler(client, query):
             action="Inline Query",
             user_id=query.from_user.id,
             username=query.from_user.username,
-            search_text=search_text
+            query=search_text
         )
         
     except Exception as e:
@@ -483,7 +489,6 @@ async def inline_query_handler(client, query):
 @espada.on_callback_query()
 async def callback_query(client, callback_query: CallbackQuery):
     try:
-        
         data = callback_query.data
         
         if "_page_" in data:
@@ -595,10 +600,7 @@ async def callback_query(client, callback_query: CallbackQuery):
     except Exception as e:
         print(f"Callback query error: {str(e)}")
         try:
-            if callback_query.message:
-                await callback_query.message.edit_text("An error occurred. Please try again.")
-            else:
-                await callback_query.answer("An error occurred. Please try again.")
+            await callback_query.answer("An error occurred. Please try again.")
         except:
             pass
 
@@ -607,7 +609,7 @@ async def caption_command(client, message):
     try:
         
         await message.delete()
-
+        
         parts = message.text.split()
         if len(parts) < 2:
             await message.reply_text(
@@ -653,32 +655,7 @@ async def caption_command(client, message):
     except Exception as e:
         await message.reply_text("An error occurred while processing your request. Please try again later.")
         print(f"Movie search error: {str(e)}")
-
-@espada.on_message(filters.text & filters.create(lambda _, __, message: message.text.startswith('!fetch')))
-async def fetch_title_details(client, message):
-    try:
-        parts = message.text.split()
-        if len(parts) != 3:
-            await message.reply_text("Invalid fetch format. Use '!fetch <tmdb_id> <media_type>'")
-            return
-
-        tmdb_id = parts[1]
-        media_type = parts[2]
-
-        # Create a mock CallbackQuery-like object
-        class MockCallbackQuery:
-            def __init__(self, message):
-                self.message = message
-                self.from_user = message.from_user
         
-        mock_callback = MockCallbackQuery(message)
-        
-        # Process the title selection
-        await process_title_selection(mock_callback, tmdb_id, media_type)
-
-    except Exception as e:
-        await message.reply_text("An error occurred while fetching details.")
-        print(f"Fetch title details error: {str(e)}")
         
 @espada.on_message(filters.command(["captionS", "cs"]))
 async def series_command(client, message):
@@ -771,9 +748,6 @@ async def process_backdrops(client, user_id: int, title_data: dict, images_data:
 async def process_title_selection(callback_query: CallbackQuery, tmdb_id: str, media_type: str = "movie") -> None:
     """Process the selected title and generate the appropriate caption with related content"""
     try:
-        if not callback_query.message:
-            await callback_query.answer("Message context lost. Please try again.")
-            return
         # Show loading message
         loading_msg = await callback_query.message.edit_text("Fetching details... Please wait!")
 
@@ -859,14 +833,11 @@ async def process_title_selection(callback_query: CallbackQuery, tmdb_id: str, m
         await callback_query.message.reply_text(additional_message, parse_mode=ParseMode.MARKDOWN)
 
     except Exception as e:
-        print(f"Title selection error: {str(e)}")
-        try:
-            if callback_query.message:
-                await callback_query.message.edit_text("An error occurred. Please try again.")
-            else:
-                await callback_query.answer("An error occurred. Please try again.")
-        except:
-            pass
+        error_msg = f"Title selection error: {str(e)}"
+        print(error_msg)
+        await callback_query.message.edit_text(
+            "An error occurred while processing your selection. Please try again."
+        )
 
 # Update the command handlers to use the new functionality
 @espada.on_message(filters.command(["captionM", "cm"]))
