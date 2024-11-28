@@ -878,7 +878,6 @@ async def process_title_selection(callback_query: CallbackQuery, tmdb_id: str, m
 
     except Exception as e:
         print(f"Title selection error: {str(e)}")
-        print(f"Title selection error: {str(e)}")
         try:
             if callback_query.message:
                 await callback_query.message.edit_text("An error occurred. Please try again.")
