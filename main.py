@@ -431,16 +431,6 @@ async def callback_query(client, callback_query: CallbackQuery):
             else:
                 await callback_query.message.edit_text("No content found for this page.")
         
-        elif data.startswith("title_"):
-            # Parse the callback data correctly
-            parts = data.split("_")
-            if len(parts) >= 3:
-                tmdb_id = parts[1]
-                media_type = parts[2]
-                await process_title_selection(callback_query, tmdb_id, media_type)
-            else:
-                await callback_query.answer("Invalid selection data")
-        
         elif callback_query.data == "cancel_search":
             await callback_query.message.delete()
             
@@ -512,262 +502,173 @@ async def callback_query(client, callback_query: CallbackQuery):
             await callback_query.answer("An error occurred. Please try again.")
         except:
             pass
-
-@espada.on_message(filters.command(["captionM", "cm"]))
-async def caption_command(client, message):
+@espada.on_inline_query()
+async def inline_search(client, inline_query):
     try:
+        query = inline_query.query.strip()
         
-        await message.delete()
-        
-        parts = message.text.split()
-        if len(parts) < 2:
-            await message.reply_text(
-                "Please provide a movie name.\n"
-                "Example: `/cm Kalki 2898 AD`"
+        if not query:
+            await inline_query.answer(
+                results=[
+                    InlineQueryResultArticle(
+                        title="How to search",
+                        description="Type a movie/series name to search",
+                        input_message_content=InputTextMessageContent(
+                            "Please type a movie or series name to search.\n\nExample: @your_bot_username Inception"
+                        ),
+                        id="instructions"
+                    )
+                ],
+                cache_time=0
             )
             return
 
-        movie_name = " ".join(parts[1:])
-        status_message = await message.reply_text("Searching for movies... Please wait!")
-
-        # Search for movies
-        search_results = await tmdb.search_titles(movie_name, "movie")
+        movie_results = await tmdb.search_titles(query, "movie")
+        tv_results = await tmdb.search_titles(query, "tv")
         
-        if not search_results:
-            await status_message.edit_text("No movies found with that title. Please try a different search.")
-            return
-
-        results = {
-            'results': search_results[:10],
-            'page': 1,
-            'total_pages': 1
-        }
+        inline_results = []
         
-        keyborard = create_content_list_keyboard(
-            results['results'],
-            results['page'],
-            results['total_pages'],
-            'movie_search'
-        )
-        await status_message.edit_text(
-            "Found the following movies. Please select one:",
-            reply_markup=keyborard
+        # Process movie results
+        for movie in movie_results[:15]:
+            try:
+                movie_id = movie['id']
+                title_data = await tmdb.get_title_details(movie_id, "movie")
+                
+                if not title_data:
+                    continue
+                    
+                title = title_data.get('title', 'N/A')
+                year = title_data.get('release_date', 'N/A')[:4] if title_data.get('release_date') else 'N/A'
+                imdb_rating = title_data.get('vote_average', 'N/A')
+                poster_path = title_data.get('poster_path')
+                runtime = f"{title_data.get('runtime', 'N/A')} min"
+                rated = 'U/A' if not title_data.get('adult', False) else 'A'
+                
+                # Using your original format_caption function
+                caption = format_caption(
+                    movie=title,
+                    year=year,
+                    audio=determine_audio({
+                        "Language": title_data.get('original_language', 'N/A'),
+                        "Genre": ', '.join([genre['name'] for genre in title_data.get('genres', [])]),
+                        "Actors": "",
+                        "Plot": title_data.get('overview', 'N/A'),
+                        "Country": ""
+                    }),
+                    language=title_data.get('original_language', 'N/A'),
+                    genre=', '.join([genre['name'] for genre in title_data.get('genres', [])]),
+                    imdb_rating=imdb_rating,
+                    runTime=runtime,
+                    rated=rated,
+                    synopsis=title_data.get('overview', 'N/A')
+                )
+
+                if poster_path:
+                    thumb_url = f"https://image.tmdb.org/t/p/w500{poster_path}"
+                else:
+                    thumb_url = "https://via.placeholder.com/500x750"
+
+                inline_results.append(
+                    InlineQueryResultArticle(
+                        title=f"🎬 {title} ({year})",
+                        description=title_data.get('overview', '')[:100] + "..." if title_data.get('overview') else 'No description available',
+                        thumb_url=thumb_url,
+                        input_message_content=InputTextMessageContent(
+                            message_text=caption,
+                            parse_mode=ParseMode.MARKDOWN
+                        ),
+                        id=f"movie_{movie_id}"
+                    )
+                )
+
+            except Exception as e:
+                print(f"Error processing movie {movie.get('title', 'unknown')}: {str(e)}")
+                continue
+
+        # Process TV show results
+        for tv in tv_results[:15]:
+            try:
+                tv_id = tv['id']
+                title_data = await tmdb.get_title_details(tv_id, "tv")
+                
+                if not title_data:
+                    continue
+                    
+                title = title_data.get('name', 'N/A')
+                year = title_data.get('first_air_date', 'N/A')[:4] if title_data.get('first_air_date') else 'N/A'
+                imdb_rating = title_data.get('vote_average', 'N/A')
+                poster_path = title_data.get('poster_path')
+                runtime = f"{title_data.get('episode_run_time', ['N/A'])[0]} min" if title_data.get('episode_run_time') else 'N/A min'
+                
+                # Using your original format_series_caption function
+                caption = format_series_caption(
+                    movie=title,
+                    year=year,
+                    audio=determine_audio({
+                        "Language": title_data.get('original_language', 'N/A'),
+                        "Genre": ', '.join([genre['name'] for genre in title_data.get('genres', [])]),
+                        "Actors": "",
+                        "Plot": title_data.get('overview', 'N/A'),
+                        "Country": ""
+                    }),
+                    language=title_data.get('original_language', 'N/A'),
+                    genre=', '.join([genre['name'] for genre in title_data.get('genres', [])]),
+                    imdb_rating=imdb_rating,
+                    runTime=runtime,
+                    totalSeason=str(title_data.get('number_of_seasons', 'N/A')),
+                    type='TV Series',
+                    synopsis=title_data.get('overview', 'N/A')
+                )
+
+                if poster_path:
+                    thumb_url = f"https://image.tmdb.org/t/p/w500{poster_path}"
+                else:
+                    thumb_url = "https://via.placeholder.com/500x750"
+
+                inline_results.append(
+                    InlineQueryResultArticle(
+                        title=f"📺 {title} ({year})",
+                        description=title_data.get('overview', '')[:100] + "..." if title_data.get('overview') else 'No description available',
+                        thumb_url=thumb_url,
+                        input_message_content=InputTextMessageContent(
+                            message_text=caption,
+                            parse_mode=ParseMode.MARKDOWN
+                        ),
+                        id=f"tv_{tv_id}"
+                    )
+                )
+
+            except Exception as e:
+                print(f"Error processing TV show {tv.get('name', 'unknown')}: {str(e)}")
+                continue
+
+        await inline_query.answer(
+            results=inline_results,
+            cache_time=300
         )
         
         await logger.log_message(
-            action="Movie Caption Command",
-            user_id=message.from_user.id,
-            username=message.from_user.username,
-            chat_id=message.chat.id
+            action="Inline Search",
+            user_id=inline_query.from_user.id,
+            username=inline_query.from_user.username,
+            query=query
         )
 
     except Exception as e:
-        await message.reply_text("An error occurred while processing your request. Please try again later.")
-        print(f"Movie search error: {str(e)}")
-        
-        
-@espada.on_message(filters.command(["captionS", "cs"]))
-async def series_command(client, message):
-    try:
-        
-        await message.delete()
-        
-        parts = message.text.split()
-        if len(parts) < 2:
-            await message.reply_text(
-                "Please provide a series name.\n"
-                "Example: `/cs Breaking Bad`"
-            )
-            return
-
-        series_name = " ".join(parts[1:])
-        status_message = await message.reply_text("Searching for series... Please wait!")
-
-        # Search specifically for TV series
-        results = await tmdb.search_titles(series_name, "tv")
-        
-        if not results:
-            await status_message.edit_text("No series found with that title. Please try a different search.")
-            return
-
-        # Ensure each result is marked as a TV series
-        for result in results:
-            result['media_type'] = 'tv'
-
-        # Create keyboard with properly tagged results
-        keyboard = create_content_list_keyboard(
-            results[:10],
-            1,
-            1,
-            "series_search"
+        print(f"Inline search error: {str(e)}")
+        await inline_query.answer(
+            results=[
+                InlineQueryResultArticle(
+                    title="Error",
+                    description="An error occurred while searching. Please try again.",
+                    input_message_content=InputTextMessageContent(
+                        "Search failed. Please try again."
+                    ),
+                    id="error"
+                )
+            ],
+            cache_time=0
         )
-        
-        await status_message.edit_text(
-            "📺 Found the following series. Please select one:",
-            reply_markup=keyboard
-        )
-        
-        await logger.log_message(
-            action="Series Caption Command",
-            user_id=message.from_user.id,
-            username=message.from_user.username,
-            chat_id=message.chat.id
-        )
-
-    except Exception as e:
-        await message.reply_text("An error occurred while processing your request. Please try again later.")
-        print(f"Series search error: {str(e)}")
-
-async def process_title_selection(callback_query: CallbackQuery, tmdb_id: str, media_type: str = "movie") -> None:
-    """Process the selected title and generate the appropriate caption with related content"""
-    try:
-        # Show loading message
-        loading_msg = await callback_query.message.edit_text("Fetching details... Please wait!")
-
-        # Get detailed information
-        title_data = await tmdb.get_title_details(tmdb_id, media_type)
-        similar_data = await tmdb.get_similar_titles(tmdb_id, media_type)
-        images_data = await tmdb.get_images(tmdb_id, media_type)
-
-        if not title_data:
-            await loading_msg.edit_text("Failed to fetch title details. Please try again.")
-            return
-
-        imdb_rating = title_data.get('imdb_rating', 'N/A')
-        
-        # Create data dictionary for additional message
-        if media_type == "tv":
-            series_data = {
-                'movie_p': title_data.get('name', 'N/A'),
-                'year_p': title_data.get('first_air_date', 'N/A')[:4] if title_data.get('first_air_date') else 'N/A',
-            }
-            additional_message = f"""`[PirecyKings2] [Sseason Eepisode] {series_data['movie_p']} ({series_data['year_p']}) @pirecykings2`
-
-`S01 English - Hindi [480p]`
-
-`S01 English - Hindi [720p]`
-
-`S01 English - Hindi [1080p]`"""
-            
-            caption = format_series_caption(
-                movie=title_data.get('name', 'N/A'),
-                year=title_data.get('first_air_date', 'N/A')[:4] if title_data.get('first_air_date') else 'N/A',
-                audio='Multi',
-                language=title_data.get('original_language', 'N/A'),
-                genre=', '.join([genre['name'] for genre in title_data.get('genres', [])]),
-                imdb_rating=imdb_rating,
-                runTime=str(title_data.get('episode_run_time', [0])[0] if title_data.get('episode_run_time') else 'N/A') + ' min',
-                totalSeason=str(title_data.get('number_of_seasons', 'N/A')),
-                type='TV Series',
-                synopsis=title_data.get('overview', 'N/A')
-            )
-        else:
-            movie_data = {
-                'movie_p': title_data.get('title', 'N/A'),
-                'year_p': title_data.get('release_date', 'N/A')[:4] if title_data.get('release_date') else 'N/A',
-                'audio_p': determine_audio(title_data)
-            }
-            additional_message = f"""`[PirecyKings2] {movie_data['movie_p']} ({movie_data['year_p']}) @pirecykings2`
-
-`{movie_data['movie_p']} ({movie_data['year_p']}) 480p - 1080p [{movie_data['audio_p']}]`"""
-            
-            caption = format_caption(
-                movie=title_data.get('title', 'N/A'),
-                year=title_data.get('release_date', 'N/A')[:4] if title_data.get('release_date') else 'N/A',
-                audio='Multi',
-                language=title_data.get('original_language', 'N/A'),
-                genre=', '.join([genre['name'] for genre in title_data.get('genres', [])]),
-                imdb_rating=imdb_rating,
-                runTime=str(title_data.get('runtime', 'N/A')) + ' min',
-                rated=title_data.get('adult', False) and 'A' or 'U/A',
-                synopsis=title_data.get('overview', 'N/A')
-            )
-
-        # Delete loading message
-        await loading_msg.delete()
-
-        # Send main poster with caption
-        poster_path = title_data.get('poster_path')
-        if poster_path:
-            poster_url = f"https://image.tmdb.org/t/p/w500{poster_path}"
-            await callback_query.message.reply_photo(
-                photo=poster_url,
-                caption=caption,
-                parse_mode=ParseMode.MARKDOWN
-            )
-        await callback_query.message.reply_text(additional_message, parse_mode=ParseMode.MARKDOWN)
-
-    except Exception as e:
-        error_msg = f"Title selection error: {str(e)}"
-        print(error_msg)
-        await callback_query.message.edit_text(
-            "An error occurred while processing your selection. Please try again."
-        )
-
-# Update the command handlers to use the new functionality
-@espada.on_message(filters.command(["captionM", "cm"]))
-async def caption_command(client, message):
-    try:
-        parts = message.text.split()
-        if len(parts) < 2:
-            await message.reply_text(
-                "Please provide a movie name.\n"
-                "Example: `/cm Kalki 2898 AD`"
-            )
-            return
-
-        movie_name = " ".join(parts[1:])
-        status_message = await message.reply_text("Searching for movies... Please wait!")
-
-        # Search for movies
-        results = await tmdb.search_titles(movie_name, "movie")
-        
-        if not results:
-            await status_message.edit_text("No movies found with that title. Please try a different search.")
-            return
-
-        # Create and send results keyboard
-        keyboard = create_content_list_keyboard(results[:10], 1, 1, "movie")  # Limit to top 10 results
-        await status_message.edit_text(
-            "🎬 Found the following movies. Please select one:",
-            reply_markup=keyboard
-        )
-
-    except Exception as e:
-        await message.reply_text("An error occurred while processing your request. Please try again later.")
-        print(f"Movie search error: {str(e)}")
-
-@espada.on_message(filters.command(["captionS", "cs"]))
-async def series_command(client, message):
-    try:
-        parts = message.text.split()
-        if len(parts) < 2:
-            await message.reply_text(
-                "Please provide a series name.\n"
-                "Example: `/cs Breaking Bad`"
-            )
-            return
-
-        series_name = " ".join(parts[1:])
-        status_message = await message.reply_text("Searching for series... Please wait!")
-
-        # Search for series
-        results = await tmdb.search_titles(series_name, "tv")
-        
-        if not results:
-            await status_message.edit_text("No series found with that title. Please try a different search.")
-            return
-
-        # Create and send results keyboard
-        keyboard = create_content_list_keyboard(results[:10], 1, 1, "tv")  # Limit to top 10 results
-        await status_message.edit_text(
-            "📺 Found the following series. Please select one:",
-            reply_markup=keyboard
-        )
-
-    except Exception as e:
-        await message.reply_text("An error occurred while processing your request. Please try again later.")
-        print(f"Series search error: {str(e)}")
 
 async def start_bot():
     try:
