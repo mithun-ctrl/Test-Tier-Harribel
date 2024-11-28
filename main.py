@@ -208,36 +208,26 @@ def create_inline_movie_results(movies):
     """Create a list of InlineQueryResultArticle from movie data"""
     results = []
     for movie in movies:
-        # Get basic movie info
         title = movie.get('title', 'N/A')
         year = movie.get('release_date', '')[:4] if movie.get('release_date') else 'N/A'
         overview = movie.get('overview', 'No overview available')
         poster_path = movie.get('poster_path')
-        
-        # Create thumbnail URL if poster exists
+
         thumb_url = f"https://image.tmdb.org/t/p/w200{poster_path}" if poster_path else None
-        
-        # Create description text
         description = f"{overview[:100]}..." if len(overview) > 100 else overview
         
-        # Create the result article
         results.append(
             InlineQueryResultArticle(
                 title=f"{title} ({year})",
                 description=description,
                 thumb_url=thumb_url,
                 input_message_content=InputTextMessageContent(
-                    f"/cm {title}"  # Use existing caption command
-                ),
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton(
-                        "🎬 Get Movie Post",
-                        callback_data=f"title_{movie['id']}_movie"
-                    )
-                ]])
+                    f"/cm {title}"  # or an alternative command
+                )
             )
         )
     return results
+
 
 @espada.on_message(filters.command(["start"]))
 async def start_command(client, message):
@@ -524,9 +514,6 @@ async def inline_query_handler(client, query):
 async def callback_query(client, callback_query: CallbackQuery):
     try:
         
-        if not callback_query.message:
-            await callback_query.answer("Message context lost. Please try again.")
-            return
         data = callback_query.data
         
         if "_page_" in data:
