@@ -504,11 +504,11 @@ async def inline_query_handler(client, query):
         
         # Log the inline query
         await logger.log_message(
-            action="Inline Query",
-            user_id=query.from_user.id,
-            username=query.from_user.username,
-            query=search_text
-        )
+        action="Inline Query",
+        user_id=query.from_user.id,
+        username=query.from_user.username,
+        search_text=search_text  # Change 'query' to 'search_text'
+)
         
     except Exception as e:
         print(f"Inline query error: {str(e)}")
@@ -523,6 +523,10 @@ async def inline_query_handler(client, query):
 @espada.on_callback_query()
 async def callback_query(client, callback_query: CallbackQuery):
     try:
+        
+        if not callback_query.message:
+            await callback_query.answer("Message context lost. Please try again.")
+            return
         data = callback_query.data
         
         if "_page_" in data:
@@ -634,7 +638,10 @@ async def callback_query(client, callback_query: CallbackQuery):
     except Exception as e:
         print(f"Callback query error: {str(e)}")
         try:
-            await callback_query.answer("An error occurred. Please try again.")
+            if callback_query.message:
+                await callback_query.message.edit_text("An error occurred. Please try again.")
+            else:
+                await callback_query.answer("An error occurred. Please try again.")
         except:
             pass
 
@@ -782,6 +789,9 @@ async def process_backdrops(client, user_id: int, title_data: dict, images_data:
 async def process_title_selection(callback_query: CallbackQuery, tmdb_id: str, media_type: str = "movie") -> None:
     """Process the selected title and generate the appropriate caption with related content"""
     try:
+        if not callback_query.message:
+            await callback_query.answer("Message context lost. Please try again.")
+            return
         # Show loading message
         loading_msg = await callback_query.message.edit_text("Fetching details... Please wait!")
 
@@ -867,11 +877,15 @@ async def process_title_selection(callback_query: CallbackQuery, tmdb_id: str, m
         await callback_query.message.reply_text(additional_message, parse_mode=ParseMode.MARKDOWN)
 
     except Exception as e:
-        error_msg = f"Title selection error: {str(e)}"
-        print(error_msg)
-        await callback_query.message.edit_text(
-            "An error occurred while processing your selection. Please try again."
-        )
+        print(f"Title selection error: {str(e)}")
+        print(f"Title selection error: {str(e)}")
+        try:
+            if callback_query.message:
+                await callback_query.message.edit_text("An error occurred. Please try again.")
+            else:
+                await callback_query.answer("An error occurred. Please try again.")
+        except:
+            pass
 
 # Update the command handlers to use the new functionality
 @espada.on_message(filters.command(["captionM", "cm"]))
