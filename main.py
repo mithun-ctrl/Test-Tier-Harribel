@@ -445,26 +445,60 @@ async def inline_query_handler(client, query):
                 cache_time=0
             )
         
-        # Search for movies using existing TMDB function
+        # Search for movies and TV shows
         movies = await tmdb.search_titles(search_text, "movie")
+        tv_shows = await tmdb.search_titles(search_text, "tv")
         
-        if not movies:
+        # Combine and limit results
+        combined_results = movies[:25] + tv_shows[:25]
+        
+        if not combined_results:
             # No results found
             return await query.answer(
                 results=[],
-                switch_pm_text="No movies found! Try different keywords...",
+                switch_pm_text="No movies or series found! Try different keywords...",
                 switch_pm_parameter="no_results",
                 cache_time=300
             )
         
         # Create inline results
-        results = create_inline_movie_results(movies[:50])  # Limit to 50 results
+        results = []
+        for item in combined_results:
+            # Determine media type and basic details
+            title = item.get('title') or item.get('name', 'N/A')
+            year = (item.get('release_date') or item.get('first_air_date', ''))[:4]
+            media_type = 'movie' if 'title' in item else 'tv'
+            overview = item.get('overview', 'No overview available')
+            poster_path = item.get('poster_path')
+            
+            # Create thumbnail URL if poster exists
+            thumb_url = f"https://image.tmdb.org/t/p/w200{poster_path}" if poster_path else None
+            
+            # Create description text
+            description = f"{overview[:100]}..." if len(overview) > 100 else overview
+            
+            results.append(
+                InlineQueryResultArticle(
+                    title=f"{title} ({year})",
+                    description=description,
+                    thumb_url=thumb_url,
+                    input_message_content=InputTextMessageContent(
+                        message_text=f"Details for {title}"
+                    ),
+                    reply_markup=InlineKeyboardMarkup([[
+                        InlineKeyboardButton(
+                            "🎬 Get Post Details",
+                            callback_data=f"title_{item['id']}_{media_type}"
+                        )
+                    ]])
+                )
+            )
         
         # Answer the inline query
         await query.answer(
             results=results,
             cache_time=300,  # Cache results for 5 minutes
-            switch_pm_text="Click here for more options",
+            switch_pm_text="Click on 'Get Post Details'",
             switch_pm_parameter="from_inline"
         )
         
@@ -609,7 +643,7 @@ async def caption_command(client, message):
     try:
         
         await message.delete()
-        
+
         parts = message.text.split()
         if len(parts) < 2:
             await message.reply_text(
