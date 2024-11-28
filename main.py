@@ -21,8 +21,7 @@ from config import (
     bot_token,
     log_channel,
     tmdb_api_token,
-    omdb_api,
-    DUMP_CHANNELS,
+    omdb_api
 )
 from handlers.tmdb import tmdbFunctions
 from handlers.download import downloadHandler
@@ -204,41 +203,6 @@ def format_series_caption(movie, year, audio, language, genre, imdb_rating, runT
 > [𝗜𝗳 𝗬𝗼𝘂 𝗦𝗵𝗮𝗿𝗲 𝗢𝘂𝗿 𝗙𝗶𝗹𝗲𝘀 𝗪𝗶𝘁𝗵𝗼𝘂𝘁 𝗖𝗿𝗲𝗱𝗶𝘁, 𝗧𝗵𝗲𝗻 𝗬𝗼𝘂 𝗪𝗶𝗹𝗹 𝗯𝗲 𝗕𝗮𝗻𝗻𝗲𝗱]"""
 
     return caption
-
-def create_inline_movie_results(movies):
-    """Create a list of InlineQueryResultArticle from movie data"""
-    results = []
-    for movie in movies:
-        # Get basic movie info
-        title = movie.get('title', 'N/A')
-        year = movie.get('release_date', '')[:4] if movie.get('release_date') else 'N/A'
-        overview = movie.get('overview', 'No overview available')
-        poster_path = movie.get('poster_path')
-        
-        # Create thumbnail URL if poster exists
-        thumb_url = f"https://image.tmdb.org/t/p/w200{poster_path}" if poster_path else None
-        
-        # Create description text
-        description = f"{overview[:100]}..." if len(overview) > 100 else overview
-        
-        # Create the result article
-        results.append(
-            InlineQueryResultArticle(
-                title=f"{title} ({year})",
-                description=description,
-                thumb_url=thumb_url,
-                input_message_content=InputTextMessageContent(
-                    f"/cm {title}"  # Use existing caption command
-                ),
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton(
-                        "🎬 Get Movie Post",
-                        callback_data=f"title_{movie['id']}_movie"
-                    )
-                ]])
-            )
-        )
-    return results
 
 @espada.on_message(filters.command(["start"]))
 async def start_command(client, message):
@@ -430,62 +394,6 @@ async def upcoming_command(client, message):
     except Exception as e:
         await message.reply_text("An error occurred while fetching upcoming content.")
         print(f"Upcoming command error: {str(e)}")
-
-@espada.on_inline_query()
-async def inline_query_handler(client, query):
-    try:
-        # Get the search text
-        search_text = query.query.strip()
-        
-        if len(search_text) < 2:
-            # Show a tip if search text is too short
-            return await query.answer(
-                results=[],
-                switch_pm_text="Type at least 2 characters to search movies...",
-                switch_pm_parameter="inline_help",
-                cache_time=0
-            )
-        
-        # Search for movies using existing TMDB function
-        movies = await tmdb.search_titles(search_text, "movie")
-        
-        if not movies:
-            # No results found
-            return await query.answer(
-                results=[],
-                switch_pm_text="No movies found! Try different keywords...",
-                switch_pm_parameter="no_results",
-                cache_time=300
-            )
-        
-        # Create inline results
-        results = create_inline_movie_results(movies[:50])  # Limit to 50 results
-        
-        # Answer the inline query
-        await query.answer(
-            results=results,
-            cache_time=300,  # Cache results for 5 minutes
-            switch_pm_text="Click here for more options",
-            switch_pm_parameter="from_inline"
-        )
-        
-        # Log the inline query
-        await logger.log_message(
-            action="Inline Query",
-            user_id=query.from_user.id,
-            username=query.from_user.username,
-            query=search_text
-        )
-        
-    except Exception as e:
-        print(f"Inline query error: {str(e)}")
-        # Show error to user
-        await query.answer(
-            results=[],
-            switch_pm_text="An error occurred! Try again...",
-            switch_pm_parameter="error",
-            cache_time=0
-        )
 
 @espada.on_callback_query()
 async def callback_query(client, callback_query: CallbackQuery):
@@ -710,65 +618,6 @@ async def series_command(client, message):
         await message.reply_text("An error occurred while processing your request. Please try again later.")
         print(f"Series search error: {str(e)}")
         
-@espada.on_message(filters.command(["dump"]))
-async def set_dump_channel(client, message):
-    try:
-        
-        await message.delete()
-        
-        if len(message.command) != 2:
-            await message.reply_text(
-                "Please provide the channel ID.\n"
-                "Usage: `/dump -100xxxxxxxxxxxx`"
-            )
-            return
-        
-        channel_id = int(message.command[1])
-        user_id = message.from_user.id
-        
-        try:
-            # Try to send a test message to verify bot has access
-            test_msg = await client.send_message(channel_id, "Testing channel access...")
-            await test_msg.delete()
-            
-            DUMP_CHANNELS[user_id] = channel_id
-            await message.reply_text("✅ Dump channel set successfully!")
-            
-        except Exception as e:
-            await message.reply_text(
-                "❌ Failed to set dump channel. Please make sure:\n"
-                "1. The channel ID is correct\n"
-                "2. The bot is added to the channel\n"
-                "3. The bot has permission to post in the channel"
-            )
-            
-    except Exception as e:
-        await message.reply_text("An error occurred while setting dump channel.")
-        print(f"Set dump channel error: {str(e)}") 
-        
-@espada.on_message(~filters.command(["start", "captionM", "cm","captionS", "cs"]) & ~filters.channel & ~filters.group)
-async def default_response(client, message):
-    try:
-        
-        await message.reply_text("⚠ Invaild command!")
-
-        # Log the default response
-        await logger.log_message(
-            action="Default Response",
-            user_id=message.from_user.id,
-            username=message.from_user.username,
-            chat_id=message.chat.id,
-        )
-
-    except Exception as e:
-        print(f"Default response error: {str(e)}")
-        await logger.log_message(
-            action="Default Response Error",
-            user_id=message.from_user.id,
-            username=message.from_user.username,
-            chat_id=message.chat.id,
-            error=e
-        )
 
 async def process_backdrops(client, user_id: int, title_data: dict, images_data: dict) -> None:
     """Process and send backdrop images to appropriate channels"""
@@ -801,11 +650,6 @@ async def process_backdrops(client, user_id: int, title_data: dict, images_data:
                 backdrop_url = f"https://image.tmdb.org/t/p/original{backdrop_path}"
                 caption = f"🎬 {title} ({year})"
                 backdrop_media.append(InputMediaPhoto(media=backdrop_url, caption=caption))
-        
-        # Send to dump channel if configured
-        dump_channel = DUMP_CHANNELS.get(user_id)
-        if dump_channel and backdrop_media:
-            await client.send_media_group(dump_channel, backdrop_media)
             
     except Exception as e:
         print(f"Error processing backdrops: {str(e)}")
